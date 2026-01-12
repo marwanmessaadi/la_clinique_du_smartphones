@@ -1,0 +1,5 @@
+// stylelint-disable declaration-no-important
+
+@each $value in $Utilisateur-selects {
+  .Utilisateur-select-#{$value} { Utilisateur-select: $value !important; }
+}
