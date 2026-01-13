@@ -310,8 +310,6 @@ class POSController extends Controller
     {
         $validated = $request->validate([
             'nom' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'prix' => 'required|numeric|min:0',
             'produit' => 'required|string|max:255',
             'client_id' => 'nullable|exists:utilisateurs,id',
             'notes' => 'nullable|string|max:500',
