@@ -1,8 +1,13 @@
-@extends('layouts.app')
-@section('title', 'Facture de Vente - ' . $vente->numero_vente)
-
-@push('styles')
-<style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    <style>
     @media print {
         body { margin: 0; padding: 0; }
         .no-print { display: none !important; }
@@ -192,7 +197,6 @@
         color: #721c24;
     }
 </style>
-@endpush
 
 @section('content')
 <div class="no-print">
@@ -208,10 +212,7 @@
     <!-- En-tête de l'entreprise -->
     <div class="facture-header">
         <div class="company-name">CLINIQUE DU SMARTPHONE</div>
-        <div class="company-info">Spécialiste en Réparation & Vente de Téléphones</div>
-        <div class="company-info">📍 123 Rue de la Technologie, 75001 Paris</div>
-        <div class="company-info">📞 +33 1 23 45 67 89 | 📧 contact@clinique-smartphone.fr</div>
-        <div class="company-info">🕒 Lun-Ven: 9h-19h | Sam: 9h-17h</div>
+        
     </div>
 
     <!-- Titre de la facture -->
@@ -286,8 +287,8 @@
                         @endif
                     </td>
                     <td style="text-align: center;">{{ $vente->quantite }}</td>
-                    <td style="text-align: right;">{{ number_format($vente->prix_unitaire, 2) }} €</td>
-                    <td style="text-align: right;">{{ number_format($vente->prix_total, 2) }} €</td>
+                    <td style="text-align: right;">{{ number_format($vente->prix_unitaire, 2) }} DH</td>
+                    <td style="text-align: right;">{{ number_format($vente->prix_total, 2) }} DH</td>
                 </tr>
             </tbody>
         </table>
@@ -297,7 +298,7 @@
     <div class="total-section">
         <div class="total-row">
             <span>TOTAL À PAYER:</span>
-            <span>{{ number_format($vente->prix_total, 2) }} €</span>
+            <span>{{ number_format($vente->prix_total, 2) }} DH</span>
         </div>
     </div>
 
@@ -332,4 +333,5 @@
         // setTimeout(function() { window.print(); }, 500);
     };
 </script>
-@endsection
+</body>
+</html>

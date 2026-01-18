@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class VenteController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Affiche la liste des ventes.
      */
     public function index(Request $request)
     {
@@ -38,7 +38,7 @@ class VenteController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Affiche le formulaire pour créer une nouvelle vente.
      */
     public function create()
     {
@@ -53,7 +53,7 @@ class VenteController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Enregistre une nouvelle vente et affiche le ticket.
      */
     public function store(Request $request)
     {
@@ -67,7 +67,8 @@ class VenteController extends Controller
         ]);
 
         $vente = null;
-        DB::transaction(function () use ($validated, $request, &$vente) {
+
+        DB::transaction(function () use ($validated, &$vente) {
             $produit = Produits::findOrFail($validated['produit_id']);
 
             // Vérifier le stock
@@ -75,7 +76,6 @@ class VenteController extends Controller
                 throw new \Exception('Stock insuffisant pour cette vente.');
             }
 
-            // Calculer les prix
             $prixUnitaire = $validated['prix_unitaire'];
             $prixTotal = $prixUnitaire * $validated['quantite'];
 
@@ -92,11 +92,10 @@ class VenteController extends Controller
                 'statut' => $validated['statut'],
             ]);
 
-            // Si la vente est finalisée, décrémenter le stock immédiatement
+            // Décrémenter le stock si la vente est finalisée
             if ($validated['statut'] === 'finalisee') {
                 $produit->decrement('quantite', $validated['quantite']);
-                
-                // Si la quantité atteint 0, changer le statut à 'vendu'
+
                 if ($produit->quantite <= 0) {
                     $produit->etat = 'vendu';
                     $produit->save();
@@ -104,7 +103,7 @@ class VenteController extends Controller
             }
         });
 
-        // Si la vente a été finalisée automatiquement, afficher le ticket et imprimer
+        // Préparer les données pour le ticket
         if ($vente && $vente->statut === 'finalisee') {
             $vente->load(['produit', 'utilisateur']);
             $data = [
@@ -120,14 +119,18 @@ class VenteController extends Controller
                 'total' => $vente->prix_total,
             ];
 
-            return view('ticket', ['type' => 'vente', 'data' => $data]);
+            // Retourner la vue ticket avec la variable $type
+            return view('ticket', [
+                'type' => 'vente',
+                'data' => $data
+            ]);
         }
 
         return redirect()->route('ventes.index')->with('success', 'Vente créée avec succès.');
     }
 
     /**
-     * Display the specified resource.
+     * Affiche les détails d'une vente.
      */
     public function show(Vente $vente)
     {
@@ -136,7 +139,7 @@ class VenteController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Affiche le formulaire pour éditer une vente.
      */
     public function edit(Vente $vente)
     {
@@ -147,7 +150,7 @@ class VenteController extends Controller
     }
 
     /**
-     * Update the specified resource in storage.
+     * Met à jour une vente.
      */
     public function update(Request $request, Vente $vente)
     {
@@ -157,11 +160,11 @@ class VenteController extends Controller
             'statut' => 'required|in:en_cours,finalisee,annulee',
         ]);
 
-        // Si on annule la vente, remettre le stock
+        // Remettre le stock si vente annulée
         if ($validated['statut'] === 'annulee' && $vente->statut !== 'annulee') {
             $vente->produit->increment('quantite', $vente->quantite);
         }
-        // Si on finalise une vente en cours, décrémenter le stock
+        // Décrémenter stock si finalisation d'une vente en cours
         elseif ($validated['statut'] === 'finalisee' && $vente->statut === 'en_cours') {
             if ($vente->produit->quantite < $vente->quantite) {
                 return back()->withErrors(['stock' => 'Stock insuffisant pour finaliser cette vente.']);
@@ -175,11 +178,10 @@ class VenteController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Supprime une vente.
      */
     public function destroy(Vente $vente)
     {
-        // Remettre le stock si la vente était finalisée
         if ($vente->statut === 'finalisee') {
             $vente->produit->increment('quantite', $vente->quantite);
         }
@@ -190,7 +192,7 @@ class VenteController extends Controller
     }
 
     /**
-     * Enregistre une vente rapide (méthode existante pour compatibilité).
+     * Méthode pour enregistrement rapide (compatibilité POS).
      */
     public function storeVente(Request $request)
     {
@@ -201,11 +203,32 @@ class VenteController extends Controller
      * Générer un reçu pour la vente.
      */
     public function printRecu(Vente $vente)
-    {
-        $vente->load(['produit', 'utilisateur']);
-        return view('ventes.recu', compact('vente'));
-    }
+{
+    $vente->load(['produit', 'utilisateur']);
 
+    // Préparer les données pour le ticket
+    $data = [
+        'id' => $vente->numero_vente,
+        'client' => $vente->utilisateur ? ($vente->utilisateur->nom . ' ' . $vente->utilisateur->prenom) : 'Anonyme',
+        'produits' => [
+            [
+                'nom' => $vente->produit->nom ?? 'Produit',
+                'quantite' => $vente->quantite,
+                'prix_unitaire' => $vente->prix_unitaire,
+            ]
+        ],
+        'total' => $vente->prix_total,
+    ];
+
+    return view('ventes.recu', [
+        'type' => 'vente', // <- important ! sinon Undefined variable $type
+        'data' => $data
+    ]);
+}
+
+    /**
+     * Générer la facture pour la vente.
+     */
     public function printFacture(Vente $vente)
     {
         $vente->load(['produit', 'utilisateur']);

@@ -44,17 +44,6 @@
                                     </div>
                                     <small class="form-text">Le nom complet de l'entreprise fournisseur</small>
                                 </div>
-
-                                <div class="form-group">
-                                    <label class="form-label" for="email">Adresse Email</label>
-                                    <div class="input-group">
-                                        <input type="email" class="form-control" id="email" name="email" value="{{ old('email', $fournisseur->email) }}" placeholder="contact@fournisseur.com">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-envelope"></i>
-                                        </span>
-                                    </div>
-                                    <small class="form-text">Adresse email de contact principale</small>
-                                </div>
                             </div>
 
                             <div class="col-md-6">

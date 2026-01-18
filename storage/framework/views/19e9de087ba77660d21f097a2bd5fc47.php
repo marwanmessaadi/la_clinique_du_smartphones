@@ -1,96 +1,166 @@
 
-<?php $__env->startSection('title', 'Gestion des Réparations'); ?>
+<?php $__env->startSection('title', 'Liste des Réparations'); ?>
+
+<?php $__env->startPush('styles'); ?>
+<style>
+    .table-container {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+    }
+    
+    .search-form {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .status-en_cours { background: #fff3cd; color: #856404; }
+    .status-terminee { background: #d4edda; color: #155724; }
+    .status-annulee { background: #f8d7da; color: #721c24; }
+</style>
+<?php $__env->stopPush(); ?>
 
 <?php $__env->startSection('content'); ?>
-<div class="container-fluid">
-    <div class="page-header">
-        <h1 class="page-title">Gestion des Réparations</h1>
-        <p class="page-subtitle">Suivez et gérez toutes les réparations de vos clients</p>
-    </div>
-
-    <?php if(session('success')): ?>
-        <div class="alert alert-success">
-            <i class="fas fa-check-circle"></i>
-            <?php echo e(session('success')); ?>
-
-        </div>
-    <?php endif; ?>
-
-    <?php if(session('error')): ?>
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle"></i>
-            <?php echo e(session('error')); ?>
-
-        </div>
-    <?php endif; ?>
-
-    <div class="content-card">
-        <div class="card-header">
-            <h2 class="card-title">
-                <i class="fas fa-tools"></i>
-                Actions Rapides
-            </h2>
-        </div>
-        <div class="card-body">
-            <a href="<?php echo e(route('reparation.create')); ?>" class="btn-add">
-                <i class="fas fa-plus"></i>
-                Nouvelle Réparation
-            </a>
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="table-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="mb-0">Gestion des Réparations</h2>
+                        <p class="mb-0 opacity-75">Suivez toutes les réparations en cours et terminées</p>
+                    </div>
+                    <a href="<?php echo e(route('reparation.create')); ?>" class="btn btn-light">
+                        <i class="fas fa-plus"></i> Nouvelle Réparation
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="content-card">
-        <div class="card-header">
-            <h2 class="card-title">
-                <i class="fas fa-list"></i>
-                Liste des Réparations
-            </h2>
-        </div>
-        <div class="card-body">
-            <!-- Search Form -->
-            <div class="mb-3">
-                <form method="GET" class="d-flex">
-                    <input type="text" class="form-control me-2" name="search" value="<?php echo e(request('search')); ?>" placeholder="Rechercher par nom, description ou code...">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-search"></i> Rechercher
-                    </button>
+    <!-- Formulaire de recherche -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="search-form">
+                <form method="GET" action="<?php echo e(route('reparation.index')); ?>" class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="Rechercher..." value="<?php echo e(request('search')); ?>">
+                    </div>
+                    <div class="col-md-2">
+                        <select name="etat" class="form-select">
+                            <option value="">Tous les états</option>
+                            <option value="en_cours" <?php echo e(request('etat') == 'en_cours' ? 'selected' : ''); ?>>En cours</option>
+                            <option value="terminee" <?php echo e(request('etat') == 'terminee' ? 'selected' : ''); ?>>Terminée</option>
+                            <option value="annulee" <?php echo e(request('etat') == 'annulee' ? 'selected' : ''); ?>>Annulée</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="date_debut" class="form-control" 
+                               value="<?php echo e(request('date_debut')); ?>" placeholder="Date début">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" name="date_fin" class="form-control" 
+                               value="<?php echo e(request('date_fin')); ?>" placeholder="Date fin">
+                    </div>
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Rechercher
+                            </button>
+                            <a href="<?php echo e(route('reparation.index')); ?>" class="btn btn-secondary">
+                                <i class="fas fa-redo"></i> Réinitialiser
+                            </a>
+                        </div>
+                    </div>
                 </form>
             </div>
+        </div>
+    </div>
 
-            <?php if($reparations->count() > 0): ?>
-                <div class="table-container">
-                    <table class="reparations-table">
-                        <thead>
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Total</h6>
+                <h3><?php echo e($stats['total']); ?></h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">En cours</h6>
+                <h3 class="text-warning"><?php echo e($stats['en_cours']); ?></h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Terminées</h6>
+                <h3 class="text-success"><?php echo e($stats['terminees']); ?></h3>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card">
+                <h6 class="text-muted">Montant Total</h6>
+                <h3 class="text-primary"><?php echo e(number_format($stats['montant_total'], 2)); ?> DH</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau -->
+    <div class="row">
+        <div class="col-12">
+            <div class="table-container">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
                             <tr>
+                                <th>Code</th>
                                 <th>Client</th>
-                                <th>Description</th>
-                                <th>Prix</th>
-                                <th>Date de réparation</th>
                                 <th>Produit</th>
+                                <th>Date</th>
+                                <th>Prix</th>
                                 <th>État</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php $__currentLoopData = $reparations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $reparation): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php $__empty_1 = true; $__currentLoopData = $reparations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $reparation): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                                 <tr>
                                     <td>
-                                        <span class="client-name"><?php echo e($reparation->nom); ?></span>
+                                        <strong><?php echo e($reparation->code ?? 'N/A'); ?></strong>
                                     </td>
+                                    <td><?php echo e(e($reparation->nom)); ?></td>
+                                    <td><?php echo e(e($reparation->produit)); ?></td>
                                     <td>
-                                        <span class="reparation-description"><?php echo e(Str::limit($reparation->description, 50)); ?></span>
-                                    </td>
-                                    <td>
-                                        <span class="price-amount"><?php echo e(number_format($reparation->prix, 2)); ?> €</span>
-                                    </td>
-                                    <td>
-                                        <span class="reparation-date">
-                                            <?php echo e($reparation->date_reparation ? $reparation->date_reparation->format('d/m/Y H:i') : 'Non définie'); ?>
+                                        <?php echo e($reparation->date_reparation ? $reparation->date_reparation->format('d/m/Y H:i') : 'N/A'); ?>
 
-                                        </span>
                                     </td>
                                     <td>
-                                        <span class="product-name"><?php echo e($reparation->produit); ?></span>
+                                        <strong><?php echo e(number_format($reparation->prix, 2)); ?> DH</strong>
                                     </td>
                                     <td>
                                         <span class="status-badge status-<?php echo e($reparation->etat); ?>">
@@ -99,53 +169,52 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <div class="action-buttons">
-                                            <a href="<?php echo e(route('reparation.show', $reparation->id)); ?>" class="btn-view">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="<?php echo e(route('reparation.show', $reparation)); ?>" 
+                                               class="btn btn-info" title="Voir">
                                                 <i class="fas fa-eye"></i>
-                                                Voir
                                             </a>
-                                            <a href="<?php echo e(route('reparation.edit', $reparation->id)); ?>" class="btn-edit">
+                                            <a href="<?php echo e(route('reparation.edit', $reparation)); ?>" 
+                                               class="btn btn-warning" title="Modifier">
                                                 <i class="fas fa-edit"></i>
-                                                Modifier
                                             </a>
-                                            <form action="<?php echo e(route('reparation.destroy', $reparation->id)); ?>" method="POST" style="display: inline;">
+                                            <?php if(auth()->user()->can('delete', $reparation)): ?>
+                                            <form action="<?php echo e(route('reparation.destroy', $reparation)); ?>" 
+                                                  method="POST" style="display: inline;">
                                                 <?php echo csrf_field(); ?>
                                                 <?php echo method_field('DELETE'); ?>
-                                                <button type="submit" class="btn-delete" onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette réparation ?')">
+                                                <button type="submit" class="btn btn-danger" 
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette réparation ?')"
+                                                        title="Supprimer">
                                                     <i class="fas fa-trash"></i>
-                                                    Supprimer
                                                 </button>
                                             </form>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
-                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                                <tr>
+                                    <td colspan="7" class="text-center py-4">
+                                        <i class="fas fa-inbox fa-2x text-muted mb-2"></i>
+                                        <p class="text-muted">Aucune réparation trouvée</p>
+                                    </td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
-
+                
+                <!-- Pagination -->
                 <?php if($reparations->hasPages()): ?>
-                    <div class="pagination">
-                        <?php echo e($reparations->links()); ?>
+                <div class="card-footer">
+                    <?php echo e($reparations->withQueryString()->links()); ?>
 
-                    </div>
-                <?php endif; ?>
-            <?php else: ?>
-                <div class="empty-state">
-                    <div class="empty-icon">
-                        <i class="fas fa-tools"></i>
-                    </div>
-                    <h3>Aucune réparation trouvée</h3>
-                    <p>Il n'y a encore aucune réparation dans le système.</p>
-                    <a href="<?php echo e(route('reparation.create')); ?>" class="btn-add">
-                        <i class="fas fa-plus"></i>
-                        Créer la première réparation
-                    </a>
                 </div>
-            <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>
 <?php $__env->stopSection(); ?>
-
 <?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\marwan\clinique\resources\views/reparations/index.blade.php ENDPATH**/ ?>

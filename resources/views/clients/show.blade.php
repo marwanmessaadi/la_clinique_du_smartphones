@@ -60,7 +60,7 @@
                                 <div class="stat-label">Achats effectués</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-number">{{ $utilisateur->ventes ? $utilisateur->ventes->sum('prix_total') : 0 }}€</div>
+                                <div class="stat-number">{{ $utilisateur->ventes ? $utilisateur->ventes->sum('prix_total') : 0 }}DH</div>
                                 <div class="stat-label">Total dépensé</div>
                             </div>
                             <div class="stat-item">
@@ -108,7 +108,7 @@
                                 <p class="activity-text">
                                     Achat de {{ $vente->produit->nom }} ({{ $vente->quantite }} unité{{ $vente->quantite > 1 ? 's' : '' }})
                                 </p>
-                                <p class="activity-date">{{ $vente->date_vente->format('d/m/Y à H:i') }} - {{ number_format($vente->prix_total, 2) }}€</p>
+                                <p class="activity-date">{{ $vente->date_vente->format('d/m/Y à H:i') }} - {{ number_format($vente->prix_total, 2) }}DH</p>
                             </div>
                         </div>
                         @endforeach

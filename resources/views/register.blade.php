@@ -24,7 +24,7 @@
                         <div class="row">
                             <!-- Colonne gauche avec l'image -->
                             <div class="col-lg-6 d-none d-lg-block">
-                                <img src="{{ asset('img/logo complet.jpg') }}" 
+                                <img src="{{ asset('img/LOGO.png') }}" 
                                      alt="Logo La Clinique du Smartphone" 
                                      class="img-fluid" 
                                      style="height: 100%; width: 100%; object-fit: cover;">

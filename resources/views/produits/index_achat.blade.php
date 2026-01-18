@@ -7,7 +7,7 @@
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Produits d'Achat</h1>
         <a href="{{ route('produits.create', ['type' => 'achat']) }}" class="btn btn-success">
-            <i class="fas fa-plus"></i> Nouveau Produit d'Achat
+            <i class="fas fa-plus"></i> Ajouter un Produit d'Achat
         </a>
     </div>
 
@@ -74,15 +74,10 @@
         </form>
     </div>
 
-    <!-- Products Table Card -->
+    <!-- Products Table -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Liste des Produits d'Achat</h6>
-            <div class="btn-group">
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="printTable()">
-                    <i class="fas fa-print"></i> Imprimer
-                </button>
-            </div>
+            <h6 class="m-0 font-weight-bold text-white">Liste des Produits d'Achat</h6>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -108,7 +103,7 @@
                                     @endif
                                 </td>
                                 <td>{{ Str::limit($produit->description, 50) }}</td>
-                                <td class="price-column">{{ number_format($produit->prix_achat, 2) }} €</td>
+                                <td class="price-column">{{ number_format($produit->prix_achat, 2) }} DH</td>
                                 <td>
                                     <span class="badge {{ $produit->quantite > 0 ? 'bg-success' : 'bg-danger' }}">
                                         {{ $produit->quantite }}
@@ -127,9 +122,15 @@
                                         <a href="{{ route('produits.show', $produit->id) }}" class="btn btn-info btn-sm" title="Voir détails">
                                             <i class="fas fa-eye"></i>
                                         </a>
+
                                         <a href="{{ route('produits.edit', $produit->id) }}" class="btn btn-warning btn-sm" title="Modifier">
                                             <i class="fas fa-edit"></i>
                                         </a>
+
+                                        <a href="{{ route('produits.facture-achat', $produit->id) }}" class="btn btn-primary btn-sm" title="Facture" target="_blank">
+                                            <i class="fas fa-file-invoice-dollar"></i>
+                                        </a>
+
                                         <form action="{{ route('produits.destroy', $produit->id) }}" method="POST" style="display:inline;">
                                             @csrf
                                             @method('DELETE')
@@ -155,6 +156,7 @@
                     </tbody>
                 </table>
             </div>
+
             @if($produits->hasPages())
                 <div class="d-flex justify-content-center mt-3">
                     {{ $produits->links() }}
@@ -163,10 +165,4 @@
         </div>
     </div>
 </div>
-
-<script>
-function printTable() {
-    window.print();
-}
-</script>
 @endsection

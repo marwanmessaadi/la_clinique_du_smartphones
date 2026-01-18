@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Reparation extends Model
 {
-    use HasFactory;
+    use HasFactory; // RETIREZ SoftDeletes si présent
 
     protected $table = 'reparations';
 
@@ -23,14 +23,23 @@ class Reparation extends Model
     ];
 
     protected $casts = [
-        'date_reparation' => 'datetime', // changed from 'date' to 'datetime'
+        'date_reparation' => 'datetime',
         'prix' => 'decimal:2'
     ];
 
-    public function scopeSearch($query, $search)
+    // Ajoutez ces scopes pour éviter les erreurs
+    public function scopeWithoutSoftDeletes($query)
     {
-        return $query->where('nom', 'like', "%$search%")
-            ->orWhere('description', 'like', "%$search%")
-            ->orWhere('code', 'like', "%$search%");
+        return $query;
+    }
+
+    public static function boot()
+    {
+        parent::boot();
+
+        // Désactive le scope SoftDeletes global
+        static::addGlobalScope('withoutSoftDeletes', function ($builder) {
+            // Ne rien faire - cela évite d'ajouter la clause deleted_at
+        });
     }
 }

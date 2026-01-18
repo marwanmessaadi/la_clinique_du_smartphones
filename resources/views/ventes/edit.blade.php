@@ -21,7 +21,7 @@
                                 <p><strong>Quantité:</strong> {{ $vente->quantite }}</p>
                             </div>
                             <div class="col-md-6">
-                                <p><strong>Prix total:</strong> {{ number_format($vente->prix_total, 2) }} €</p>
+                                <p><strong>Prix total:</strong> {{ number_format($vente->prix_total, 2) }} DH</p>
                                 <p><strong>Date:</strong> {{ $vente->date_vente->format('d/m/Y H:i') }}</p>
                             </div>
                         </div>

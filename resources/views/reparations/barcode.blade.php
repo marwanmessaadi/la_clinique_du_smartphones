@@ -1,191 +1,307 @@
-@extends('layouts.app')
-@section('title', 'Code Barre - ' . $reparation->code)
-
-@section('content')
-<style>
-    .barcode-container {
-        max-width: 600px;
-        margin: 2rem auto;
-        background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        overflow: hidden;
-    }
-
-    .barcode-header {
-        background: #f8f9fa;
-        padding: 1.5rem 2rem;
-        border-bottom: 1px solid #e9ecef;
-        text-align: center;
-    }
-
-    .barcode-title {
-        font-size: 1.5rem;
-        color: #2c3e50;
-        font-weight: 600;
-        margin: 0;
-    }
-
-    .barcode-body {
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .barcode-info {
-        margin-bottom: 2rem;
-    }
-
-    .barcode-label {
-        display: block;
-        font-weight: 600;
-        color: #495057;
-        margin-bottom: 0.5rem;
-        font-size: 0.9rem;
-    }
-
-    .barcode-value {
-        color: #6c757d;
-        font-size: 1.1rem;
-        font-family: monospace;
-        background: #f8f9fa;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        display: inline-block;
-        margin-bottom: 1rem;
-    }
-
-    .barcode-display {
-        margin: 2rem 0;
-        padding: 2rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 2px solid #e9ecef;
-    }
-
-    .barcode-image {
-        margin: 1rem 0;
-    }
-
-    .barcode-footer {
-        padding: 1.5rem 2rem;
-        background: #f8f9fa;
-        border-top: 1px solid #e9ecef;
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-    }
-
-    .btn {
-        display: inline-block;
-        font-weight: 500;
-        text-align: center;
-        vertical-align: middle;
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
-        line-height: 1.5;
-        border-radius: 6px;
-        transition: all 0.15s ease-in-out;
-        cursor: pointer;
-        text-decoration: none;
-    }
-
-    .btn-primary {
-        color: #fff;
-        background-color: #0d6efd;
-        border: 1px solid #0a58ca;
-    }
-
-    .btn-primary:hover {
-        background-color: #0a58ca;
-        border-color: #0a53be;
-    }
-
-    .btn-secondary {
-        color: #fff;
-        background-color: #6c757d;
-        border: 1px solid #5c636a;
-    }
-
-    .btn-secondary:hover {
-        background-color: #5c636a;
-        border-color: #565e64;
-    }
-
-    .print-section {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: #e7f3ff;
-        border-radius: 6px;
-        border: 1px solid #b3d9ff;
-    }
-
-    .print-title {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #0056b3;
-        margin-bottom: 0.5rem;
-    }
-
-    @media print {
-        .barcode-header,
-        .barcode-footer,
-        .print-section {
-            display: none;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Réparation - {{ isset($reparation) ? $reparation->code : ($data['code'] ?? 'N/A') }}</title>
+    <style>
+        /* Styles pour impression */
+        @media print {
+            @page {
+                size: 80mm auto;
+                margin: 0;
+            }
+            
+            body {
+                margin: 0;
+                padding: 5mm;
+                font-size: 10px;
+                width: 80mm;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
         }
-
+        
+        /* Styles écran */
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 80mm;
+            margin: 20px auto;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background: white;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 2px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+            text-transform: uppercase;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .info-section {
+            margin: 10px 0;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            min-width: 100px;
+        }
+        
+        .info-value {
+            text-align: right;
+            flex: 1;
+        }
+        
         .barcode-container {
-            box-shadow: none;
-            border: 1px solid #ddd;
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
         }
-
-        .barcode-body {
-            padding: 1rem;
+        
+        .text-barcode {
+            font-family: 'Courier New', monospace;
+            font-size: 20px;
+            letter-spacing: 4px;
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px solid #000;
+            background: white;
+            display: inline-block;
         }
-    }
-</style>
+        
+        .total {
+            border-top: 2px solid #000;
+            padding-top: 10px;
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: right;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px dashed #ccc;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .actions {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .btn-print {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-print:hover {
+            background: #0056b3;
+        }
+        
+        .btn-close {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-close:hover {
+            background: #545b62;
+        }
+        
+        .description-box {
+            border: 1px solid #ccc;
+            padding: 8px;
+            min-height: 40px;
+            background: #f9f9f9;
+            border-radius: 3px;
+        }
+        
+        .notes-box {
+            border: 1px dotted #ccc;
+            padding: 5px;
+            font-size: 11px;
+            background: #fffbf0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    @php
+        // Utiliser $reparation si disponible, sinon $data
+        $ticketData = isset($reparation) ? [
+            'code' => $reparation->code ?? 'N/A',
+            'nom' => $reparation->nom ?? 'N/A',
+            'produit' => $reparation->produit ?? 'N/A',
+            'etat' => $reparation->etat ?? 'N/A',
+            'date_reparation' => $reparation->date_reparation,
+            'prix' => $reparation->prix ?? 0,
+            'description' => $reparation->description ?? '',
+            'notes' => $reparation->notes ?? '',
+            'barcode' => $barcode ?? null,
+        ] : ($data ?? []);
+    @endphp
 
-<div class="barcode-container">
-    <div class="barcode-header">
-        <h2 class="barcode-title">Code Barre de la Réparation</h2>
+    <!-- En-tête -->
+    <div class="header">
+        <h1 class="title">TICKET RÉPARATION</h1>
+        <p class="subtitle">{{ config('app.name', 'Votre Magasin') }}</p>
+        <p>{{ now()->format('d/m/Y H:i') }}</p>
     </div>
-
-    <div class="barcode-body">
-        <div class="barcode-info">
-            <span class="barcode-label">Client</span>
-            <div class="barcode-value">{{ $reparation->nom }}</div>
-
-            <span class="barcode-label">Code</span>
-            <div class="barcode-value">{{ $reparation->code }}</div>
+    
+    <!-- Informations principales -->
+    <div class="info-section">
+        <div class="info-row">
+            <span class="info-label">Code:</span>
+            <span class="info-value"><strong>{{ $ticketData['code'] }}</strong></span>
         </div>
-
-        <div class="barcode-display">
-            <div class="barcode-image">
-                {!! $barcode !!}
+        <div class="info-row">
+            <span class="info-label">Client:</span>
+            <span class="info-value">{{ $ticketData['nom'] }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Produit:</span>
+            <span class="info-value">{{ $ticketData['produit'] }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">État:</span>
+            <span class="info-value">
+                @php
+                    $etatLabels = [
+                        'en_cours' => 'En cours',
+                        'terminee' => 'Terminée',
+                        'annulee' => 'Annulée'
+                    ];
+                    $etatLabel = $etatLabels[$ticketData['etat']] ?? ucfirst($ticketData['etat']);
+                @endphp
+                {{ $etatLabel }}
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Date:</span>
+            <span class="info-value">
+                @if(isset($ticketData['date_reparation']) && $ticketData['date_reparation'])
+                    {{ \Carbon\Carbon::parse($ticketData['date_reparation'])->format('d/m/Y H:i') }}
+                @else
+                    {{ now()->format('d/m/Y H:i') }}
+                @endif
+            </span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Prix:</span>
+            <span class="info-value"><strong>{{ number_format($ticketData['prix'], 2, ',', ' ') }} DH</strong></span>
+        </div>
+    </div>
+    
+    <!-- Description -->
+    @if(!empty($ticketData['description']))
+    <div class="info-section">
+        <div style="font-weight: bold; margin-bottom: 5px;">Description:</div>
+        <div class="description-box">
+            {{ $ticketData['description'] }}
+        </div>
+    </div>
+    @endif
+    
+    <!-- Code-barres -->
+    <div class="barcode-container">
+        @if(isset($ticketData['barcode']) && !empty($ticketData['barcode']))
+            {!! $ticketData['barcode'] !!}
+        @else
+            <div class="text-barcode">
+                {{ $ticketData['code'] }}
             </div>
-        </div>
-
-        <div class="print-section">
-            <div class="print-title">💡 Conseil d'impression</div>
-            <p style="margin: 0; font-size: 0.85rem; color: #0056b3;">
-                Pour une meilleure lisibilité, imprimez cette page en mode paysage et utilisez du papier de qualité.
-            </p>
+            <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                Code réparation
+            </div>
+        @endif
+    </div>
+    
+    <!-- Notes -->
+    @if(!empty($ticketData['notes']))
+    <div class="info-section">
+        <div style="font-weight: bold; margin-bottom: 5px;">Notes:</div>
+        <div class="notes-box">
+            {{ $ticketData['notes'] }}
         </div>
     </div>
-
-    <div class="barcode-footer">
-        <a href="{{ route('reparation.show', $reparation) }}" class="btn btn-secondary">
-            Retour aux détails
-        </a>
-        <button onclick="window.print()" class="btn btn-primary">
-            Imprimer
+    @endif
+    
+    <!-- Total -->
+    <div class="total">
+        TOTAL À PAYER: {{ number_format($ticketData['prix'], 2, ',', ' ') }} DH
+    </div>
+    
+    <!-- Pied de page -->
+    <div class="footer">
+        <p><strong>Merci pour votre confiance !</strong></p>
+        <p>Ticket généré le {{ now()->format('d/m/Y à H:i') }}</p>
+        <p style="margin-top: 5px;">Pour toute réclamation, présentez ce ticket</p>
+    </div>
+    
+    <!-- Boutons d'action (non imprimés) -->
+    <div class="actions no-print">
+        <button onclick="window.print()" class="btn btn-print">
+            🖨️ Imprimer
+        </button>
+        <button onclick="window.close()" class="btn btn-close">
+            ✖️ Fermer
         </button>
     </div>
-</div>
-
-<script>
-    // Auto-print functionality (optional)
-    // window.onload = function() {
-    //     window.print();
-    // };
-</script>
-@endsection
+    
+    <script>
+        // Auto-impression au chargement (optionnel - décommenter si souhaité)
+        // window.addEventListener('load', function() {
+        //     setTimeout(function() {
+        //         window.print();
+        //     }, 500);
+        // });
+        
+        // Fermeture automatique après impression (optionnel)
+        window.addEventListener('afterprint', function() {
+            // window.close(); // Décommenter pour fermer automatiquement
+        });
+    </script>
+</body>
+</html>

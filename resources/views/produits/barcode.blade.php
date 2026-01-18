@@ -119,7 +119,7 @@
 
         <div class="barcode-info">
             <div class="barcode-label">Prix de Vente</div>
-            <div class="barcode-value">{{ number_format($produit->prix_vente, 2) }} €</div>
+            <div class="barcode-value">{{ number_format($produit->prix_vente, 2) }} DH</div>
         </div>
 
         <div class="barcode-display">

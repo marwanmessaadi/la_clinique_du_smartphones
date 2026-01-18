@@ -207,12 +207,12 @@
 
             <div class="detail-item">
                 <div class="detail-label">Prix unitaire</div>
-                <div class="detail-value">{{ number_format($vente->prix_unitaire, 2) }} €</div>
+                <div class="detail-value">{{ number_format($vente->prix_unitaire, 2) }} DH</div>
             </div>
 
             <div class="detail-item">
                 <div class="detail-label">Prix total</div>
-                <div class="detail-value price-highlight">{{ number_format($vente->prix_total, 2) }} €</div>
+                <div class="detail-value price-highlight">{{ number_format($vente->prix_total, 2) }} DH</div>
             </div>
         </div>
 

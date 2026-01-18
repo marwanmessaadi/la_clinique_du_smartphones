@@ -6,7 +6,7 @@
 <div class="container-fluid">
     <!-- Page Header -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 class="h3 mb-0 text-gray-800">Liste des Produits</h1>
+        <h1 class="h3 mb-0 text-gray-800 ">Liste des Produits</h1>
         <div class="btn-group">
             <a href="<?php echo e(route('produits.create', ['type' => 'achat'])); ?>" class="btn btn-success">
                 <i class="fas fa-plus"></i> Produit Achat
@@ -28,7 +28,7 @@
     <!-- Products Table Card -->
     <div class="card shadow mb-4">
         <div class="card-header py-3 d-flex justify-content-between align-items-center">
-            <h6 class="m-0 font-weight-bold text-primary">Liste des Produits</h6>
+            <h6 class="m-0 font-weight-bold text-white">Liste des Produits</h6>
             <div class="btn-group">
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="exportToExcel()">
                     <i class="fas fa-file-excel"></i> Exporter

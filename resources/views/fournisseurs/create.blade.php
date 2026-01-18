@@ -38,16 +38,15 @@
                                     </div>
                                     <small class="form-text">Le nom complet de l'entreprise fournisseur</small>
                                 </div>
-
                                 <div class="form-group">
-                                    <label class="form-label" for="email">Adresse Email</label>
+                                    <label class="form-label" for="email">Email </label>
                                     <div class="input-group">
-                                        <input type="email" class="form-control" id="email" name="email" value="{{ old('email') }}" placeholder="contact@fournisseur.com">
+                                        <input type="email" class="form-control" id="email" name="email" value="{{ old('email') }}" placeholder="Email du fournisseur">
                                         <span class="input-group-text">
                                             <i class="fas fa-envelope"></i>
                                         </span>
                                     </div>
-                                    <small class="form-text">Adresse email de contact principale</small>
+                                    <small class="form-text">Adresse email de contact du fournisseur</small>
                                 </div>
                             </div>
 
@@ -68,6 +67,7 @@
                                     <textarea class="form-control" id="adresse" name="adresse" placeholder="Adresse complète du fournisseur">{{ old('adresse') }}</textarea>
                                     <small class="form-text">Adresse postale complète avec code postal et ville</small>
                                 </div>
+                                
                             </div>
                         </div>
 

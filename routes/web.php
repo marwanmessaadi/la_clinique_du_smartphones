@@ -1,6 +1,5 @@
 <?php
-// Suppression réparation POS
-Route::delete('/pos/reparation/{id}', [App\Http\Controllers\POSController::class, 'deleteRepair'])->name('pos.deleteRepair');
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\RegisterController;
@@ -9,105 +8,265 @@ use App\Http\Controllers\ClientsController;
 use App\Http\Controllers\ProduitsController;
 use App\Http\Controllers\VenteController;
 use App\Http\Controllers\CategorieController;
-use App\Models\Produits;
-use App\Models\Utilisateur;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\FournisseurController;
 use App\Http\Controllers\POSController;
+use App\Http\Controllers\CommandeController;
+use App\Http\Controllers\ReparationController;
+use Illuminate\Support\Facades\DB;
+/*
+|--------------------------------------------------------------------------
+| Routes publiques (Authentification)
+|--------------------------------------------------------------------------
+*/
 
-// POS Réparation dédié
-Route::get('/pos/reparation', [App\Http\Controllers\POSController::class, 'reparationIndex'])->name('pos.reparation');
-// POS Vente dédié
-Route::get('/pos/vente', [App\Http\Controllers\POSController::class, 'venteIndex'])->name('pos.vente');
-
-// Routes pour finaliser la vente (brouillon, suspendre, crédit, paiement multiple)
-Route::post('/pos/draft', [App\Http\Controllers\POSController::class, 'draft'])->name('pos.draft');
-Route::post('/pos/suspend', [App\Http\Controllers\POSController::class, 'suspend'])->name('pos.suspend');
-Route::post('/pos/credit', [App\Http\Controllers\POSController::class, 'credit'])->name('pos.credit');
-Route::post('/pos/multiple', [App\Http\Controllers\POSController::class, 'multiple'])->name('pos.multiple');
-// Route pour paiement en espèces (vente)
-Route::post('/pos/cash', [App\Http\Controllers\POSController::class, 'cash'])->name('pos.cash');
-// Route pour enregistrer un devis (citation) via AJAX
-Route::post('/pos/quote', [App\Http\Controllers\POSController::class, 'quote'])->name('pos.quote');
-
-// Routes publiques (non protégées)
-Route::get('/back/login', [LoginController::class, 'login'])->name('login');
-Route::post('/login_valid', [LoginController::class, 'login_valid'])->name('login_valid');
-Route::get('/back/register', [RegisterController::class, 'create'])->name('register');
-Route::post('/back/register', [RegisterController::class, 'store'])->name('register.store');
-
-// Page d'accueil publique
+Route::middleware('guest')->group(function () {
+    Route::get('/back/login', [LoginController::class, 'login'])->name('login');
+    Route::post('/login_valid', [LoginController::class, 'login_valid'])->name('login_valid');
+});
 
 
-// Page home publique (à adapter si besoin)
-Route::get('/home', function () {
-    return view('home');
-})->name('home');
+/*
+|--------------------------------------------------------------------------
+| Routes protégées (Authentification requise)
+|--------------------------------------------------------------------------
+*/
 
-// Routes protégées par authentification
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'admin:admin,vendeur'])->group(function () {
+
+    /*
+    |----------------------------------------------------------------------
+    | Dashboard
+    |----------------------------------------------------------------------
+    */
     Route::get('/', function () {
-        $ventesMois = Produits::where('type', 'vente')
+        $ventesMois = \App\Models\Produits::where('type', 'vente')
             ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
             ->sum('prix_vente');
-        $benefices = 0; 
-        $reparations = 0; 
-        $ruptures = Produits::where('quantite', 0)->count();
-        $nouveauxClients = Utilisateur::where('role', 'client')
+            
+        $benefices = \App\Models\Produits::where('type', 'vente')
             ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum(DB::raw('prix_vente - prix_achat'));
+            
+        $reparations = \App\Models\Reparation::where('etat', 'en_cours')->count();
+        
+        $ruptures = \App\Models\Produits::where('quantite', '<=', 0)
+            ->orWhere('quantite', '<=', 5)
             ->count();
+            
+        $nouveauxClients = \App\Models\Utilisateur::where('role', 'client')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+            
         return view('index', compact('ventesMois', 'benefices', 'reparations', 'ruptures', 'nouveauxClients'));
     })->name('index');
 
-    // Utilisateurs
-    Route::resource('utilisateurs', UtilisateursController::class);
+    /*
+    |----------------------------------------------------------------------
+    | Déconnexion
+    |----------------------------------------------------------------------
+    */
+    Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
-    // Clients
-    Route::resource('clients', ClientsController::class);
+    /*
+    |----------------------------------------------------------------------
+    | Réparations
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('reparation')->name('reparation.')->group(function () {
+        Route::get('/', [ReparationController::class, 'index'])->name('index');
+        Route::get('/create', [ReparationController::class, 'create'])->name('create');
+        Route::post('/', [ReparationController::class, 'store'])->name('store');
+        Route::get('/search', [ReparationController::class, 'search'])->name('search');
+        Route::get('/export', [ReparationController::class, 'export'])->name('export');
+        
+        Route::get('/{reparation}', [ReparationController::class, 'show'])->name('show');
+        Route::get('/{reparation}/edit', [ReparationController::class, 'edit'])->name('edit');
+        Route::put('/{reparation}', [ReparationController::class, 'update'])->name('update');
+        Route::patch('/{reparation}/status', [ReparationController::class, 'updateStatus'])->name('updateStatus');
+        Route::delete('/{reparation}', [ReparationController::class, 'destroy'])->name('destroy');
+        Route::get('/{reparation}/barcode', [ReparationController::class, 'barcode'])->name('barcode');
+        Route::get('/{reparation}/ticket', [ReparationController::class, 'ticket'])->name('ticket');
+    });
 
-    // Produits
-    Route::get('/produits', [ProduitsController::class, 'index'])->name('produits.index');
-    Route::get('/produits/create', [ProduitsController::class, 'create'])->name('produits.create');
-    Route::post('/produits', [ProduitsController::class, 'store'])->name('produits.store');
-    Route::get('/produits/achat', [ProduitsController::class, 'indexAchat'])->name('produits.achat');
-    Route::get('/produits/vente', [ProduitsController::class, 'indexVente'])->name('produits.vente');
-    Route::get('/produits/{id}/edit', [ProduitsController::class, 'edit'])->name('produits.edit');
-    Route::put('/produits/{id}', [ProduitsController::class, 'update'])->name('produits.update');
-    Route::delete('/produits/{id}', [ProduitsController::class, 'destroy'])->name('produits.destroy');
-    Route::get('/produits/{id}', [ProduitsController::class, 'show'])->name('produits.show');
-    Route::get('/produits/search', [ProduitsController::class, 'searchByName'])->name('produits.searchByName');
-    Route::get('/produits/{id}/commandes', [ProduitsController::class, 'commandes'])->name('produits.commandes');
-    Route::get('/produits/{id}/commandes/create', [ProduitsController::class, 'createCommande'])->name('produits.commandes.create');
-    Route::post('/produits/{id}/commandes', [ProduitsController::class, 'storeCommande'])->name('produits.commandes.store');
-    Route::get('/produits/{produit}/barcode', [ProduitsController::class, 'barcode'])->name('produits.barcode');
-    Route::get('/produits/{produit}/ticket', [ProduitsController::class, 'printTicket'])->name('produits.ticket');
-    Route::get('/produits/{produit}/facture-achat', [ProduitsController::class, 'printFactureAchat'])->name('produits.facture-achat');
+    /*
+    |----------------------------------------------------------------------
+    | Utilisateurs
+    |----------------------------------------------------------------------
+    */
+    Route::resource('utilisateurs', UtilisateursController::class)->except(['show']);
+    Route::get('utilisateurs/{id}', [UtilisateursController::class, 'show'])->name('utilisateurs.show');
 
-    // Vente
-    Route::post('/ventes', [VenteController::class, 'storeVente'])->name('ventes.store');
-    Route::resource('ventes', VenteController::class);
-    Route::get('/ventes/{vente}/recu', [VenteController::class, 'printRecu'])->name('ventes.recu');
-    Route::get('/ventes/{vente}/facture', [VenteController::class, 'printFacture'])->name('ventes.facture');
+    /*
+    |----------------------------------------------------------------------
+    | Clients
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('clients')->name('clients.')->group(function () {
+        Route::get('/', [ClientsController::class, 'index'])->name('index');
+        Route::get('/create', [ClientsController::class, 'create'])->name('create');
+        Route::post('/', [ClientsController::class, 'store'])->name('store');
+        Route::get('/search', [ClientsController::class, 'search'])->name('search');
+        
+        Route::get('/{id}', [ClientsController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [ClientsController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [ClientsController::class, 'update'])->name('update');
+        Route::delete('/{id}', [ClientsController::class, 'destroy'])->name('destroy');
+    });
 
-    // API Routes pour les données AJAX
-    Route::get('/api/produits/{produit}', [ProduitsController::class, 'apiShow'])->name('api.produits.show');
+    /*
+    |----------------------------------------------------------------------
+    | Produits
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('produits')->name('produits.')->group(function () {
+        Route::get('/', [ProduitsController::class, 'index'])->name('index');
+        Route::get('/create', [ProduitsController::class, 'create'])->name('create');
+        Route::post('/', [ProduitsController::class, 'store'])->name('store');
+        Route::get('/search', [ProduitsController::class, 'search'])->name('search');
+        Route::get('/tickets', [ProduitsController::class, 'printTickets'])->name('tickets');
+        Route::get('/achat', [ProduitsController::class, 'indexAchat'])->name('achat');
+        Route::get('/vente', [ProduitsController::class, 'indexVente'])->name('vente');
+        
+        Route::get('/{produit}/barcode', [ProduitsController::class, 'barcode'])->name('barcode');
+        Route::get('/{produit}/ticket', [ProduitsController::class, 'printSingleTicket'])->name('ticket');
+        Route::get('/{produit}/facture-achat', [ProduitsController::class, 'factureAchat'])->name('facture-achat');
+        Route::get('/{produit}/edit', [ProduitsController::class, 'edit'])->name('edit');
+        Route::put('/{produit}', [ProduitsController::class, 'update'])->name('update');
+        Route::delete('/{produit}', [ProduitsController::class, 'destroy'])->name('destroy');
+        Route::get('/{produit}', [ProduitsController::class, 'show'])->name('show');
+    });
 
-    // Catégories
-    Route::get('/categories/search', [CategorieController::class, 'searchByName'])->name('categories.searchByName');
-    Route::resource('categories', CategorieController::class);
+    /*
+    |----------------------------------------------------------------------
+    | Ventes
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('ventes')->name('ventes.')->group(function () {
+        Route::get('/', [VenteController::class, 'index'])->name('index');
+        Route::get('/create', [VenteController::class, 'create'])->name('create');
+        Route::post('/', [VenteController::class, 'store'])->name('store');
+        
+        Route::get('/{vente}', [VenteController::class, 'show'])->name('show');
+        Route::get('/{vente}/edit', [VenteController::class, 'edit'])->name('edit');
+        Route::put('/{vente}', [VenteController::class, 'update'])->name('update');
+        Route::delete('/{vente}', [VenteController::class, 'destroy'])->name('destroy');
+        Route::get('/{vente}/recu', [VenteController::class, 'printRecu'])->name('recu');
+        Route::get('/{vente}/facture', [VenteController::class, 'printFacture'])->name('facture');
+    });
 
-    // Fournisseurs
-    Route::get('/fournisseurs/search', [FournisseurController::class, 'searchByName'])->name('fournisseurs.searchByName');
-    Route::resource('fournisseurs', FournisseurController::class);
+    /*
+    |----------------------------------------------------------------------
+    | Catégories
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('categories')->name('categories.')->group(function () {
+        Route::get('/', [CategorieController::class, 'index'])->name('index');
+        Route::get('/create', [CategorieController::class, 'create'])->name('create');
+        Route::post('/', [CategorieController::class, 'store'])->name('store');
+        Route::get('/search', [CategorieController::class, 'searchByName'])->name('searchByName');
+        
+        Route::get('/{categorie}', [CategorieController::class, 'show'])->name('show');
+        Route::get('/{categorie}/edit', [CategorieController::class, 'edit'])->name('edit');
+        Route::put('/{categorie}', [CategorieController::class, 'update'])->name('update');
+        Route::delete('/{categorie}', [CategorieController::class, 'destroy'])->name('destroy');
+    });
 
-    // Réparations
-    Route::resource('reparation', \App\Http\Controllers\ReparationController::class);
-    Route::get('/reparation/search', [\App\Http\Controllers\ReparationController::class, 'search'])->name('reparation.search');
-    Route::get('/reparation/{reparation}/barcode', [\App\Http\Controllers\ReparationController::class, 'barcode'])->name('reparation.barcode');
+    /*
+    |----------------------------------------------------------------------
+    | Fournisseurs
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('fournisseurs')->name('fournisseurs.')->group(function () {
+        Route::get('/', [FournisseurController::class, 'index'])->name('index');
+        Route::get('/create', [FournisseurController::class, 'create'])->name('create');
+        Route::post('/', [FournisseurController::class, 'store'])->name('store');
+        Route::get('/search', [FournisseurController::class, 'searchByName'])->name('searchByName');
+        
+        Route::get('/{fournisseur}', [FournisseurController::class, 'show'])->name('show');
+        Route::get('/{fournisseur}/edit', [FournisseurController::class, 'edit'])->name('edit');
+        Route::put('/{fournisseur}', [FournisseurController::class, 'update'])->name('update');
+        Route::delete('/{fournisseur}', [FournisseurController::class, 'destroy'])->name('destroy');
+    });
 
-    // POS
-    Route::get('/pos', [App\Http\Controllers\POSController::class, 'index'])->name('pos.index');
-    Route::post('/pos', [App\Http\Controllers\POSController::class, 'store'])->name('pos.store');
-    Route::post('/pos/repair', [App\Http\Controllers\POSController::class, 'storeRepair'])->name('pos.storeRepair');
+    /*
+    |----------------------------------------------------------------------
+    | Commandes d'achat
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('commandes')->name('commandes.')->group(function () {
+        Route::get('/', [CommandeController::class, 'index'])->name('index');
+        Route::get('/create', [CommandeController::class, 'create'])->name('create');
+        Route::post('/', [CommandeController::class, 'store'])->name('store');
+        Route::get('/search', [CommandeController::class, 'search'])->name('search');
+        Route::get('/search-products', [CommandeController::class, 'searchProducts'])->name('search.products');
+        Route::get('/product/{id}', [CommandeController::class, 'getProductForCommande'])->name('get.product');
+        
+        Route::get('/{commande}', [CommandeController::class, 'show'])->name('show');
+        Route::get('/{commande}/edit', [CommandeController::class, 'edit'])->name('edit');
+        Route::put('/{commande}', [CommandeController::class, 'update'])->name('update');
+        Route::delete('/{commande}', [CommandeController::class, 'destroy'])->name('destroy');
+        Route::get('/{commande}/facture', [CommandeController::class, 'printFacture'])->name('facture');
+        Route::get('/{commande}/tickets-produits', [CommandeController::class, 'printProductTickets'])->name('tickets-produits');
+    });
+
+    /*
+    |----------------------------------------------------------------------
+    | Point de Vente (POS)
+    |----------------------------------------------------------------------
+    */
+Route::prefix('pos')->name('pos.')->group(function () {
+    // Redirection par défaut
+    Route::get('/', function() {
+        return redirect()->route('pos.vente');
+    })->name('index');
     
+    // VENTE
+    Route::get('/vente', [POSController::class, 'venteIndex'])->name('vente');
+    Route::post('/vente', [POSController::class, 'store'])->name('storeVente');
+    
+    // Routes pour le panier basique
+    Route::post('/cash', [POSController::class, 'store'])->name('cash');
+    Route::post('/credit', [POSController::class, 'store'])->name('credit');
+    
+    // RÉPARATION
+    Route::get('/reparation', [POSController::class, 'reparationIndex'])->name('reparation');
+    Route::post('/reparation/store', [POSController::class, 'storeRepair'])->name('storeRepair');
+    Route::delete('/reparation/{id}', [POSController::class, 'deleteRepair'])->name('deleteRepair');
+    Route::get('/reparation/{id}/ticket', [POSController::class, 'repairTicket'])->name('repairTicket');
+    
+    
+    // API & UTILITAIRES
+    Route::get('/barcode/{code}', [POSController::class, 'generateBarcodeApi'])->name('barcode');
+    Route::post('/search-repair', [POSController::class, 'searchRepairByCode'])->name('searchRepair');
+});
+    /*
+    |----------------------------------------------------------------------
+    | Routes API pour AJAX/JSON
+    |----------------------------------------------------------------------
+    */
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/produits/search', [ProduitsController::class, 'search'])->name('produits.search');
+        Route::get('/clients/search', [ClientsController::class, 'search'])->name('clients.search');
+        Route::get('/categories/search', [CategorieController::class, 'searchByName'])->name('categories.search');
+        Route::get('/fournisseurs/search', [FournisseurController::class, 'searchByName'])->name('fournisseurs.search');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Route de secours (404)
+|--------------------------------------------------------------------------
+*/
+Route::fallback(function () {
+    if (request()->expectsJson()) {
+        return response()->json([
+            'message' => 'Route non trouvée',
+            'error' => 'Not Found'
+        ], 404);
+    }
+    
+    return response()->view('errors.404', [], 404);
 });

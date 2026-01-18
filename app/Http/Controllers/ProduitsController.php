@@ -5,422 +5,472 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Produits;
 use App\Models\Categorie;
-use Illuminate\Support\Facades\Log;
+use App\Models\Fournisseur;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Carbon;
-use Milon\Barcode\DNS1D;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Exception;
 
 class ProduitsController extends Controller
 {
     /**
-     * Affiche la liste des produits.
+     * Liste tous les produits avec pagination
      */
-    public function index()
+    public function index(Request $request)
     {
-        $produits = Produits::all();
-        return view('produits.index', compact('produits'));
-    }
+        $query = Produits::with(['categorie', 'fournisseur']);
 
-    /**
-     * Affiche la liste des produits d'achat.
-     */
-    public function indexAchat(Request $request)
-    {
-        $query = Produits::where('type', 'achat')->with(['categorie', 'fournisseur']);
-
-        // Recherche
+        // Filtres de recherche
         if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nom', 'like', '%' . $request->search . '%')
-                  ->orWhere('description', 'like', '%' . $request->search . '%')
-                  ->orWhere('code', 'like', '%' . $request->search . '%');
+            $query->where(function($q) use ($request) {
+                $q->where('nom', 'like', "%{$request->search}%")
+                  ->orWhere('code', 'like', "%{$request->search}%")
+                  ->orWhere('description', 'like', "%{$request->search}%");
             });
         }
 
-        // Filtre par catégorie
         if ($request->filled('categorie_id')) {
             $query->where('categorie_id', $request->categorie_id);
         }
 
-        // Filtre par fournisseur
         if ($request->filled('fournisseur_id')) {
             $query->where('fournisseur_id', $request->fournisseur_id);
         }
 
-        // Filtre par état
-        if ($request->filled('etat')) {
-            $query->where('etat', $request->etat);
-        }
+        $produits = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $categories = Categorie::orderBy('nom')->get();
+        $fournisseurs = Fournisseur::orderBy('nom')->get();
 
-        // Filtre par prix
-        if ($request->filled('prix_min')) {
-            $query->where('prix_achat', '>=', $request->prix_min);
-        }
-        if ($request->filled('prix_max')) {
-            $query->where('prix_achat', '<=', $request->prix_max);
-        }
-
-        $produits = $query->paginate(15);
-        $categories = \App\Models\Categorie::orderBy('nom')->get();
-        $fournisseurs = \App\Models\Fournisseur::orderBy('nom')->get();
-
-        return view('produits.index_achat', compact('produits', 'categories', 'fournisseurs'));
+        return view('produits.index', compact('produits', 'categories', 'fournisseurs'));
     }
 
     /**
-     * Affiche la liste des produits de vente.
-     */
-    public function indexVente(Request $request)
-    {
-        $query = Produits::where('type', 'vente')->with(['categorie', 'fournisseur']);
-
-        // Recherche
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nom', 'like', '%' . $request->search . '%')
-                  ->orWhere('description', 'like', '%' . $request->search . '%')
-                  ->orWhere('code', 'like', '%' . $request->search . '%');
-            });
-        }
-
-        // Filtre par catégorie
-        if ($request->filled('categorie_id')) {
-            $query->where('categorie_id', $request->categorie_id);
-        }
-
-        // Filtre par fournisseur
-        if ($request->filled('fournisseur_id')) {
-            $query->where('fournisseur_id', $request->fournisseur_id);
-        }
-
-        // Filtre par état
-        if ($request->filled('etat')) {
-            $query->where('etat', $request->etat);
-        }
-
-        // Filtre par prix
-        if ($request->filled('prix_min')) {
-            $query->where('prix_vente', '>=', $request->prix_min);
-        }
-        if ($request->filled('prix_max')) {
-            $query->where('prix_vente', '<=', $request->prix_max);
-        }
-
-        $produits = $query->paginate(15);
-        $categories = \App\Models\Categorie::orderBy('nom')->get();
-        $fournisseurs = \App\Models\Fournisseur::orderBy('nom')->get();
-
-        return view('produits.index_vente', compact('produits', 'categories', 'fournisseurs'));
-    }
-
-    /**
-     * Affiche le formulaire de création.
+     * Affiche le formulaire de création
      */
     public function create()
     {
         $categories = Categorie::orderBy('nom')->get();
-        return view('produits.create', compact('categories'));
+        $fournisseurs = Fournisseur::orderBy('nom')->get();
+
+        return view('produits.create', compact('categories', 'fournisseurs'));
     }
 
     /**
-     * Enregistre un nouveau produit.
+     * Enregistre un ou plusieurs produits
      */
     public function store(Request $request)
     {
-        $produits = $request->input('produits', []);
-        $errors = [];
-        $successCount = 0;
-
-        foreach ($produits as $idx => $prod) {
-            $validator = \Validator::make($prod, [
-                'nom' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'date_achat' => 'nullable|date',
-                'prix_achat' => 'required|numeric',
-                'prix_vente' => 'required|numeric',
-                'prix_gros' => 'nullable|numeric',
-                'quantite' => 'nullable|integer|min:0',
-                'categorie_id' => 'required|exists:categories,id',
-                'fournisseur_id' => 'nullable|exists:fournisseurs,id',
-                'type' => 'nullable|in:achat,vente',
+        // Validation selon le contexte
+        if ($request->has('produits')) {
+            // Mode commande multiple
+            $request->validate([
+                'produits' => 'required|array|min:1',
+                'produits.*.nom' => 'required|string|max:255',
+                'produits.*.quantite' => 'required|integer|min:1',
+                'produits.*.prix_achat' => 'required|numeric|min:0',
+                'produits.*.prix_vente' => 'required|numeric|min:0',
+                'produits.*.categorie_id' => 'required|exists:categories,id',
+                'produits.*.fournisseur_id' => 'nullable|exists:fournisseurs,id',
             ]);
 
-            if ($validator->fails()) {
-                $errors[$idx] = $validator->errors()->all();
-                continue;
-            }
+            return $this->storeMultiple($request);
+        } else {
+            // Mode création simple
+            $request->validate([
+                'nom' => 'required|string|max:255',
+                'code' => 'nullable|string|max:50|unique:produits,code',
+                'quantite' => 'required|integer|min:0',
+                'prix_achat' => 'required|numeric|min:0',
+                'prix_vente' => 'required|numeric|min:0',
+                'prix_gros' => 'nullable|numeric|min:0',
+                'categorie_id' => 'required|exists:categories,id',
+                'fournisseur_id' => 'nullable|exists:fournisseurs,id',
+                'date_achat' => 'nullable|date',
+                'description' => 'nullable|string|max:1000',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            ]);
 
-            try {
-                // Recherche par code/barcode si présent
-                $produitExistant = null;
-                if (!empty($prod['code'])) {
-                    $produitExistant = Produits::where('code', $prod['code'])->first();
-                }
-
-                if ($produitExistant) {
-                    // Produit existe : augmenter le stock et mettre à jour les infos
-                    $produitExistant->quantite += $prod['quantite'] ?? 0;
-                    $produitExistant->prix_achat = $prod['prix_achat'];
-                    $produitExistant->prix_vente = $prod['prix_vente'];
-                    $produitExistant->prix_gros = $prod['prix_gros'] ?? $produitExistant->prix_gros;
-                    $produitExistant->fournisseur_id = $prod['fournisseur_id'] ?? $produitExistant->fournisseur_id;
-                    $produitExistant->date_achat = !empty($prod['date_achat']) ? Carbon::parse($prod['date_achat']) : Carbon::now();
-                    // Ne jamais modifier le code existant !
-                    // if (!empty($prod['code'])) { $produitExistant->code = $produitExistant->code; }
-                    if ($request->hasFile('produits.' . $idx . '.image')) {
-                        $produitExistant->image = $request->file('produits.' . $idx . '.image')->store('produits', 'public');
-                    }
-                    $produitExistant->save();
-                    $successCount++;
-                } else {
-                    // Nouveau produit
-                    $produit = new Produits();
-                    $produit->nom = $prod['nom'];
-                    $produit->description = $prod['description'] ?? null;
-                    $produit->prix_achat = $prod['prix_achat'];
-                    $produit->prix_vente = $prod['prix_vente'];
-                    $produit->prix_gros = $prod['prix_gros'] ?? null;
-                    $produit->quantite = $prod['quantite'] ?? 0;
-                    $produit->categorie_id = $prod['categorie_id'];
-                    $produit->fournisseur_id = $prod['fournisseur_id'] ?? null;
-                    $produit->type = $prod['type'] ?? 'achat';
-                    $produit->etat = 'disponible';
-                    $produit->date_achat = !empty($prod['date_achat']) ? Carbon::parse($prod['date_achat']) : Carbon::now();
-                    if (!empty($prod['code'])) {
-                        $produit->code = $prod['code'];
-                    }
-                    if ($request->hasFile('produits.' . $idx . '.image')) {
-                        $produit->image = $request->file('produits.' . $idx . '.image')->store('produits', 'public');
-                    }
-                    $produit->save();
-                    $this->generateBarcodeForProduit($produit);
-                    $successCount++;
-                }
-            } catch (\Exception $e) {
-                $errors[$idx][] = 'Erreur lors de l\'ajout du produit: ' . $e->getMessage();
-            }
+            return $this->storeSingle($request);
         }
-
-        if (!empty($errors)) {
-            return back()->withInput()->withErrors(['multi' => $errors]);
-        }
-
-        return redirect()->route('produits.index')->with('success', $successCount . ' produit(s) ajouté(s) avec succès.');
     }
 
     /**
-     * Affiche un produit.
+     * Enregistre un seul produit
      */
-    public function show(string $id)
+    private function storeSingle(Request $request)
     {
-        $produit = Produits::findOrFail($id);
-        return view('produits.show', compact('produit'));
-    }
-
-    /**
-     * Affiche le formulaire d'édition.
-     */
-    public function edit(string $id)
-    {
-        $produit = Produits::findOrFail($id);
-        $categories = Categorie::orderBy('nom')->get();
-        return view('produits.edit', compact('produit', 'categories'));
-    }
-
-    /**
-     * Met à jour un produit.
-     */
-    public function update(Request $request, Produits $produit)
-    {
-        $validated = $request->validate([
-            'nom' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'date_achat' => 'nullable|date', // ajouté
-            'prix_achat' => 'required|numeric',
-            'prix_vente' => 'required|numeric',
-            'prix_gros' => 'nullable|numeric',
-            'quantite' => 'nullable|integer|min:0',
-            'categorie_id' => 'required|exists:categories,id',
-            'fournisseur_id' => 'nullable|exists:fournisseurs,id',
-            'type' => 'nullable|in:achat,vente',
-            'image' => 'nullable|image|max:2048',
-        ]);
-
         try {
-            $produit->nom = $validated['nom'];
-            $produit->description = $validated['description'] ?? $produit->description;
-            $produit->prix_achat = $validated['prix_achat'];
-            $produit->prix_vente = $validated['prix_vente'];
-            $produit->prix_gros = $validated['prix_gros'] ?? $produit->prix_gros;
-            $produit->quantite = $validated['quantite'] ?? $produit->quantite;
-            $produit->categorie_id = $validated['categorie_id'];
-            $produit->fournisseur_id = $validated['fournisseur_id'] ?? $produit->fournisseur_id;
-            $produit->type = $validated['type'] ?? $produit->type;
+            $produit = new Produits();
+            $produit->nom = $request->nom;
+            $produit->code = $request->code ?? $this->generateProductCode();
+            $produit->quantite = $request->quantite;
+            $produit->prix_achat = $request->prix_achat;
+            $produit->prix_vente = $request->prix_vente;
+            $produit->prix_gros = $request->prix_gros;
+            $produit->categorie_id = $request->categorie_id;
+            $produit->fournisseur_id = $request->fournisseur_id;
+            $produit->date_achat = $request->date_achat;
+            $produit->description = $request->description;
+            $produit->etat = $request->etat ?? 'disponible';
+            $produit->type = $request->type ?? 'achat';
 
-            // mettre à jour date_achat si fournie
-            if (!empty($validated['date_achat'])) {
-                $produit->date_achat = Carbon::parse($validated['date_achat']);
-            }
-
+            // Gestion de l'image
             if ($request->hasFile('image')) {
-                // optionnel : supprimer ancienne image si existante
-                if ($produit->image) {
-                    Storage::disk('public')->delete($produit->image);
-                }
                 $imagePath = $request->file('image')->store('produits', 'public');
                 $produit->image = $imagePath;
             }
 
             $produit->save();
 
-            // Generate barcode if not exists
-            $this->generateBarcodeForProduit($produit);
+            return redirect()->route('produits.index')
+                ->with('success', 'Produit créé avec succès.');
 
-            return redirect()->route('produits.index')->with('success', 'Produit mis à jour avec succès.');
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la mise à jour du produit: ' . $e->getMessage());
-            return back()->withInput()->withErrors(['error' => 'Erreur lors de la mise à jour du produit.']);
+        } catch (Exception $e) {
+            Log::error('Erreur création produit: ' . $e->getMessage());
+            return back()->with('error', 'Erreur lors de la création du produit.')
+                ->withInput();
         }
     }
 
     /**
-     * Supprime un produit.
+     * Enregistre plusieurs produits (commande d'achat)
      */
-    public function destroy(string $id)
+    private function storeMultiple(Request $request)
+    {
+        DB::beginTransaction();
+
+        try {
+            $count = 0;
+            foreach ($request->produits as $prodData) {
+                // Vérifie si le produit existe déjà
+                $produit = Produits::where('nom', $prodData['nom'])
+                    ->where('categorie_id', $prodData['categorie_id'])
+                    ->first();
+
+                if ($produit) {
+                    // Produit existant → augmente le stock et met à jour les prix
+                    $produit->quantite += $prodData['quantite'];
+                    $produit->prix_achat = $prodData['prix_achat'];
+                    $produit->prix_vente = $prodData['prix_vente'];
+                    
+                    if (isset($prodData['fournisseur_id'])) {
+                        $produit->fournisseur_id = $prodData['fournisseur_id'];
+                    }
+                    
+                    if (isset($prodData['prix_gros'])) {
+                        $produit->prix_gros = $prodData['prix_gros'];
+                    }
+                } else {
+                    // Nouveau produit → crée
+                    $produit = new Produits();
+                    $produit->nom = $prodData['nom'];
+                    $produit->code = $prodData['code'] ?? $this->generateProductCode();
+                    $produit->quantite = $prodData['quantite'];
+                    $produit->prix_achat = $prodData['prix_achat'];
+                    $produit->prix_vente = $prodData['prix_vente'];
+                    $produit->prix_gros = $prodData['prix_gros'] ?? null;
+                    $produit->categorie_id = $prodData['categorie_id'];
+                    $produit->fournisseur_id = $prodData['fournisseur_id'] ?? null;
+                    $produit->etat = 'disponible';
+                    $produit->type = 'achat';
+                }
+
+                $produit->save();
+                $count++;
+            }
+
+            DB::commit();
+            return redirect()->route('produits.index')
+                ->with('success', "{$count} produit(s) enregistré(s) avec succès.");
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Erreur enregistrement multiple: ' . $e->getMessage());
+            return back()->with('error', 'Erreur lors de l\'enregistrement des produits.')
+                ->withInput();
+        }
+    }
+
+    /**
+     * Affiche un produit spécifique
+     */
+    public function show($id)
+    {
+        $produit = Produits::with(['categorie', 'fournisseur'])->findOrFail($id);
+        return view('produits.show', compact('produit'));
+    }
+    
+    /**
+     * Affiche le formulaire d'édition
+     */
+    public function edit($id)
+    {
+        $produit = Produits::findOrFail($id);
+        $categories = Categorie::orderBy('nom')->get();
+        $fournisseurs = Fournisseur::orderBy('nom')->get();
+        
+        // Charge les commandes si la relation existe
+        $commandes = method_exists($produit, 'commandes') 
+            ? $produit->commandes()->orderByDesc('created_at')->get() 
+            : collect();
+
+        return view('produits.edit', compact('produit', 'categories', 'fournisseurs', 'commandes'));
+    }
+
+    /**
+     * Met à jour un produit
+     */
+    public function update(Request $request, $id)
+    {
+        $produit = Produits::findOrFail($id);
+
+        $request->validate([
+            'nom' => 'required|string|max:255',
+            'code' => 'nullable|string|max:50|unique:produits,code,' . $id,
+            'quantite' => 'required|integer|min:0',
+            'prix_achat' => 'required|numeric|min:0',
+            'prix_vente' => 'required|numeric|min:0',
+            'prix_gros' => 'nullable|numeric|min:0',
+            'categorie_id' => 'required|exists:categories,id',
+            'fournisseur_id' => 'nullable|exists:fournisseurs,id',
+            'date_achat' => 'nullable|date',
+            'description' => 'nullable|string|max:1000',
+            'etat' => 'nullable|in:disponible,rupture,commande',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        ]);
+
+        try {
+            $produit->nom = $request->nom;
+            $produit->code = $request->code ?? $produit->code;
+            $produit->quantite = $request->quantite;
+            $produit->prix_achat = $request->prix_achat;
+            $produit->prix_vente = $request->prix_vente;
+            $produit->prix_gros = $request->prix_gros;
+            $produit->categorie_id = $request->categorie_id;
+            $produit->fournisseur_id = $request->fournisseur_id;
+            $produit->date_achat = $request->date_achat;
+            $produit->description = $request->description;
+            $produit->etat = $request->etat ?? $produit->etat;
+
+            // Gestion de l'image
+            if ($request->hasFile('image')) {
+                // Supprime l'ancienne image
+                if ($produit->image && Storage::disk('public')->exists($produit->image)) {
+                    Storage::disk('public')->delete($produit->image);
+                }
+                
+                $imagePath = $request->file('image')->store('produits', 'public');
+                $produit->image = $imagePath;
+            }
+
+            $produit->save();
+
+            return redirect()->route('produits.show', $produit->id)
+                ->with('success', 'Produit mis à jour avec succès.');
+
+        } catch (Exception $e) {
+            Log::error('Erreur mise à jour produit: ' . $e->getMessage());
+            return back()->with('error', 'Erreur lors de la mise à jour.')
+                ->withInput();
+        }
+    }
+
+    /**
+     * Supprime un produit
+     */
+    public function destroy($id)
     {
         $produit = Produits::findOrFail($id);
 
         try {
-            // supprimer image si stockée
-            if ($produit->image) {
+            // Supprime l'image si elle existe
+            if ($produit->image && Storage::disk('public')->exists($produit->image)) {
                 Storage::disk('public')->delete($produit->image);
             }
+
             $produit->delete();
 
-            return redirect()->route('produits.index')->with('success', 'Produit supprimé avec succès.');
-        } catch (\Exception $e) {
-            Log::error('Erreur lors de la suppression du produit: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Impossible de supprimer le produit.']);
+            return redirect()->route('produits.index')
+                ->with('success', 'Produit supprimé avec succès.');
+
+        } catch (Exception $e) {
+            Log::error('Erreur suppression produit: ' . $e->getMessage());
+            return back()->with('error', 'Erreur lors de la suppression.');
         }
-    }
-    public function produitsDashbord()
-    {
-        $produits = Produits::all();
-        return view('index', compact('produits'));
     }
 
     /**
-     * Requête AJAX pour chercher un produit par nom (vente).
+     * Recherche de produits (API pour autocomplete)
      */
-    public function searchByName(Request $request)
+    public function search(Request $request)
     {
-        $query = $request->get('query');
-        $produits = Produits::where('type', 'vente')
-            ->where('quantite', '>', 0)
-            ->where('nom', 'like', "%{$query}%")
+        $query = $request->get('query', '');
+        $context = $request->get('context', 'create');
+        
+        $produits = Produits::with(['categorie', 'fournisseur'])
+            ->where(function($q) use ($query) {
+                $q->where('nom', 'like', "%{$query}%")
+                  ->orWhere('code', 'like', "%{$query}%");
+            })
+            ->where('etat', '!=', 'supprime')
             ->limit(10)
-            ->get(['id', 'nom', 'prix_vente', 'quantite']);
-
+            ->get()
+            ->map(function($produit) use ($context) {
+                return [
+                    'id' => $produit->id,
+                    'nom' => $produit->nom,
+                    'code' => $produit->code,
+                    'quantite' => $context === 'create' ? 1 : $produit->quantite,
+                    'quantite_stock' => $produit->quantite,
+                    'prix_achat' => $produit->prix_achat,
+                    'prix_vente' => $produit->prix_vente,
+                    'prix_gros' => $produit->prix_gros,
+                    'categorie_id' => $produit->categorie_id,
+                    'categorie_nom' => $produit->categorie->nom ?? '',
+                    'fournisseur_id' => $produit->fournisseur_id,
+                    'fournisseur_nom' => $produit->fournisseur->nom ?? '',
+                    'context' => $context
+                ];
+            });
+        
         return response()->json($produits);
     }
 
     /**
-     * Display the barcode for the product.
+     * Produits d'achat avec filtres
+     */
+    public function indexAchat(Request $request)
+    {
+        $query = Produits::with(['categorie', 'fournisseur'])->where('type', 'achat');
+
+        if ($request->filled('search')) {
+            $query->where(function($q) use ($request) {
+                $q->where('nom', 'like', "%{$request->search}%")
+                  ->orWhere('description', 'like', "%{$request->search}%")
+                  ->orWhere('code', 'like', "%{$request->search}%");
+            });
+        }
+
+        if ($request->filled('categorie_id')) {
+            $query->where('categorie_id', $request->categorie_id);
+        }
+
+        if ($request->filled('fournisseur_id')) {
+            $query->where('fournisseur_id', $request->fournisseur_id);
+        }
+
+        if ($request->filled('etat')) {
+            $query->where('etat', $request->etat);
+        }
+
+        if ($request->filled('prix_min')) {
+            $query->where('prix_achat', '>=', $request->prix_min);
+        }
+
+        if ($request->filled('prix_max')) {
+            $query->where('prix_achat', '<=', $request->prix_max);
+        }
+
+        $produits = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $categories = Categorie::orderBy('nom')->get();
+        $fournisseurs = Fournisseur::orderBy('nom')->get();
+
+        return view('produits.index_achat', compact('produits', 'categories', 'fournisseurs'));
+    }
+
+    /**
+     * Produits de vente
+     */
+    public function indexVente(Request $request)
+    {
+        $query = Produits::with(['categorie'])->where('type', 'vente');
+
+        if ($request->filled('search')) {
+            $query->where(function($q) use ($request) {
+                $q->where('nom', 'like', "%{$request->search}%")
+                  ->orWhere('code', 'like', "%{$request->search}%");
+            });
+        }
+
+        if ($request->filled('categorie_id')) {
+            $query->where('categorie_id', $request->categorie_id);
+        }
+
+        $produits = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
+        $categories = Categorie::orderBy('nom')->get();
+
+        return view('produits.index_vente', compact('produits', 'categories'));
+    }
+
+    /**
+     * Impression de tickets pour tous les produits
+     */
+    public function printTickets()
+    {
+        $produits = Produits::with(['categorie'])->get();
+        return view('produits.ticket', compact('produits'));
+    }
+
+    /**
+     * Impression du ticket d'un seul produit
+     */
+    public function printSingleTicket($id)
+    {
+        $produit = Produits::with(['categorie'])->findOrFail($id);
+        return view('produits.ticket', compact('produit'));
+    }
+
+    /**
+     * Affiche le code-barres d'un produit
      */
     public function barcode(Produits $produit)
     {
-        try {
-            // Generate barcode if it doesn't exist
-            $code = $this->generateBarcodeForProduit($produit);
-
-            $barcode = (new DNS1D())->getBarcodeHTML($code, 'C128', 2, 50);
-            return view('produits.barcode', compact('produit', 'barcode'));
-        } catch (\Exception $e) {
-            return redirect()->route('produits.index')
-                ->with('error', 'Erreur lors de la génération du code-barres.');
-        }
+        $barcode = $this->generateSimpleBarcode($produit->code ?? '000000');
+        return view('produits.barcode', compact('produit', 'barcode'));
     }
 
     /**
-     * Print ticket for the product.
+     * Facture d'achat pour un produit
      */
-    public function printTicket(Produits $produit)
+    public function factureAchat($id)
     {
-        try {
-            // Generate barcode if it doesn't exist
-            $code = $this->generateBarcodeForProduit($produit);
-
-            $barcode = (new DNS1D())->getBarcodeHTML($code, 'C128', 1, 30);
-            return view('produits.ticket', compact('produit', 'barcode'));
-        } catch (\Exception $e) {
-            return redirect()->route('produits.show', $produit)
-                ->with('error', 'Erreur lors de la génération du ticket.');
-        }
+        $produit = Produits::with(['categorie', 'fournisseur'])->findOrFail($id);
+        $barcode = $this->generateSimpleBarcode($produit->code ?? '000000');
+        
+        return view('produits.facture-achat', compact('produit', 'barcode'));
     }
 
     /**
-     * API endpoint to get product information for AJAX requests.
+     * Génère un code produit unique
      */
-    public function apiShow(Produits $produit)
+    private function generateProductCode()
     {
-        return response()->json([
-            'id' => $produit->id,
-            'nom' => $produit->nom,
-            'prix_vente' => $produit->prix_vente,
-            'quantite' => $produit->quantite,
-            'description' => $produit->description,
-            'categorie' => $produit->categorie ? $produit->categorie->nom : null,
-        ]);
-    }
-
-    /**
-     * Generate barcode for product.
-     */
-    private function generateBarcodeForProduit(Produits $produit)
-    {
-        if ($produit->code) {
-            // Vérifier si le code est déjà utilisé par un autre produit
-            $exists = Produits::where('code', $produit->code)
-                ->where('id', '!=', $produit->id)
-                ->exists();
-            if (!$exists) {
-                return $produit->code;
-            }
-        }
-
-        // Optimisation : ne cherche que le code max de l'année courante
-        $year = date('Y');
-        $prefix = 'PROD' . $year;
-        $maxCode = Produits::where('code', 'like', $prefix . '%')
-            ->selectRaw('MAX(code) as max_code')
-            ->value('max_code');
-
-        if ($maxCode) {
-            $lastNumber = intval(substr($maxCode, -6));
-            $number = $lastNumber + 1;
-        } else {
-            $number = 1;
-        }
-        $code = $prefix . str_pad($number, 6, '0', STR_PAD_LEFT);
-
-        $produit->update(['code' => $code]);
+        do {
+            $code = 'PROD-' . strtoupper(Str::random(8));
+        } while (Produits::where('code', $code)->exists());
 
         return $code;
     }
 
-    public function printFactureAchat(Produits $produit)
+    /**
+     * Génère un code-barres HTML simple
+     */
+    private function generateSimpleBarcode($code)
     {
-        // Vérifier que c'est bien un produit d'achat
-        if ($produit->type !== 'achat') {
-            abort(404, 'Cette facture n\'est disponible que pour les produits achetés.');
+        if (empty($code)) {
+            $code = '000000';
         }
-
-        $produit->load(['categorie', 'fournisseur']);
-
-        // Générer le code-barres si nécessaire
-        $code = $this->generateBarcodeForProduit($produit);
-        $barcode = (new DNS1D())->getBarcodeHTML($code, 'C128', 1, 40);
-
-        return view('produits.facture-achat', compact('produit', 'barcode'));
+        
+        return '
+        <div style="text-align: center; margin: 20px 0; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 8px;">
+            <div style="font-family: \'Courier New\', monospace; font-size: 28px; letter-spacing: 5px; 
+                        font-weight: bold; padding: 15px; background: white; border: 2px solid #000; border-radius: 4px;">
+                ' . htmlspecialchars($code) . '
+            </div>
+            <div style="margin-top: 12px; font-family: \'Courier New\', monospace; font-size: 14px; color: #666;">
+                Code: ' . htmlspecialchars($code) . '
+            </div>
+        </div>';
     }
 }

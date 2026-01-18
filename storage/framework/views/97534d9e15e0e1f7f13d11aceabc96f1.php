@@ -1,109 +1,218 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <title>Ticket de Vente/Réparation</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket - <?php echo e($type === 'vente' ? 'Vente' : 'Réparation'); ?></title>
     <style>
-        body {
+        @page { 
+            size: 58mm auto; 
+            margin: 0; 
+        }
+        
+        @media print {
+            body { margin: 0; padding: 0; }
+        }
+        
+        body { 
+            font-family: 'Courier New', monospace; 
+            font-size: 11px; 
+            margin: 0;
+            padding: 0;
+        }
+        
+        .ticket { 
+            width: 58mm; 
+            padding: 6mm; 
+            text-align: center; 
+        }
+        
+        .header { 
+            border-bottom: 1px dashed #000; 
+            margin-bottom: 6px; 
+            padding-bottom: 4px; 
+        }
+        
+        .logo { 
+            font-size: 14px; 
+            font-weight: bold; 
+            margin-bottom: 3px;
+        }
+        
+        .product { 
+            font-weight: bold; 
+            margin-top: 4px; 
+        }
+        
+        .price { 
+            margin: 3px 0; 
+        }
+        
+        .barcode-container { 
+            margin: 10px 0;
+            padding: 5px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+        }
+        
+        .barcode-text { 
             font-family: 'Courier New', monospace;
-            font-size: 12px;
-            max-width: 300px;
-            margin: 0 auto;
-            padding: 10px;
-        }
-        .header {
-            text-align: center;
-            border-bottom: 1px dashed #000;
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-        .logo {
-            font-size: 18px;
+            font-size: 16px; 
+            letter-spacing: 3px;
             font-weight: bold;
+            padding: 8px;
+            background: white;
+            border: 2px solid #000;
+            display: inline-block;
+            margin: 5px 0;
         }
-        .details {
-            margin-bottom: 10px;
+        
+        .code { 
+            font-size: 9px; 
+            letter-spacing: 1px;
+            color: #666;
+            margin-top: 3px;
         }
-        .item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
+        
+        .footer { 
+            font-size: 9px; 
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed #000;
         }
-        .total {
-            border-top: 1px solid #000;
-            padding-top: 5px;
-            font-weight: bold;
+        
+        .mini-ticket { 
+            border-bottom: 2px dashed #000; 
+            margin-bottom: 8px; 
+            padding-bottom: 6px; 
         }
-        .footer {
-            text-align: center;
-            margin-top: 10px;
+        
+        .info-line {
+            margin: 2px 0;
             font-size: 10px;
         }
-        @media print {
-            body { margin: 0; }
+        
+        .total {
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 6px;
+            padding-top: 4px;
+            border-top: 1px solid #000;
         }
     </style>
 </head>
-<body>
-    <?php
-        use Milon\Barcode\DNS1D;
-        $dns = new DNS1D();
-    ?>
+<body onload="window.print()">
+
+<?php
+    // Prépare les données selon le type
+    if ($type === 'reparation') {
+        $ticketData = isset($reparation) ? [
+            'code' => $reparation->code ?? 'N/A',
+            'nom' => $reparation->nom ?? 'N/A',
+            'produit' => $reparation->produit ?? 'N/A',
+            'prix' => $reparation->prix ?? 0,
+            'description' => $reparation->description ?? '',
+        ] : ($data ?? []);
+    } else {
+        $ticketData = $data ?? [];
+    }
+?>
+
+<?php if($type === 'reparation'): ?>
+    <!-- Mini-ticket pour collage sur le produit -->
+    <div class="ticket mini-ticket">
+        <div class="product">Code: <?php echo e($ticketData['code'] ?? 'N/A'); ?></div>
+        <div class="product">Problème: <?php echo e(Str::limit($ticketData['description'] ?? '', 30)); ?></div>
+        <div class="product">Prix: <?php echo e(number_format($ticketData['prix'] ?? 0, 2)); ?> DH</div>
+        
+        <div class="barcode-container">
+            <?php if(isset($barcode) && !empty($barcode)): ?>
+                <?php echo $barcode; ?>
+
+            <?php else: ?>
+                <div class="barcode-text"><?php echo e($ticketData['code'] ?? 'N/A'); ?></div>
+                <div class="code">Code réparation</div>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
+<!-- Ticket principal -->
+<div class="ticket">
     <div class="header">
         <div class="logo">Clinique du Smartphones</div>
-        <div><?php echo e($type === 'vente' ? 'Ticket de Vente' : 'Ticket de Réparation'); ?></div>
+        <div><?php echo e($type === 'vente' ? 'TICKET DE VENTE' : 'TICKET DE RÉPARATION'); ?></div>
         <div>Date: <?php echo e(now()->format('d/m/Y H:i')); ?></div>
-        <?php if($type === 'vente'): ?>
-            <div>N° Vente: <?php echo e($data['id'] ?? 'N/A'); ?></div>
-            <div>Code-barre:</div>
-            <img src="data:image/png;base64,<?php echo e($dns->getBarcodePNG($data['id'] ?? '', 'C128')); ?>" alt="Barcode" style="width: 200px; height: 50px;">
-        <?php else: ?>
-            <div>N° Réparation: <?php echo e($data['code'] ?? 'N/A'); ?></div>
-            <div>Code-barre:</div>
-            <img src="data:image/png;base64,<?php echo e($dns->getBarcodePNG($data['code'] ?? '', 'C128')); ?>" alt="Barcode" style="width: 200px; height: 50px;">
-        <?php endif; ?>
     </div>
 
-    <div class="details">
-        <?php if($type === 'vente'): ?>
-            <div><strong>Client:</strong> <?php echo e($data['client'] ?? 'Anonyme'); ?></div>
-            <div><strong>Produits:</strong></div>
-            <?php $__currentLoopData = $data['produits'] ?? []; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $produit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <div class="item">
-                    <span><?php echo e($produit['nom']); ?> (<?php echo e($produit['quantite']); ?>)</span>
-                    <span><?php echo e(number_format($produit['prix_unitaire'] * $produit['quantite'], 2)); ?> DH</span>
-                </div>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-            <div class="total">
-                <div class="item">
-                    <span>Total:</span>
-                    <span><?php echo e(number_format($data['total'] ?? 0, 2)); ?> DH</span>
-                </div>
-            </div>
-        <?php else: ?>
-            <div><strong>Client:</strong> <?php echo e($data['nom']); ?></div>
-            <div><strong>Produit:</strong> <?php echo e($data['produit']); ?></div>
-            <div><strong>Description:</strong> <?php echo e(Str::limit($data['description'], 50)); ?></div>
-            <div class="total">
-                <div class="item">
-                    <span>Prix:</span>
-                    <span><?php echo e(number_format($data['prix'], 2)); ?> DH</span>
-                </div>
-            </div>
+    <?php if($type === 'vente'): ?>
+        <!-- Ticket de vente -->
+        <div class="info-line"><strong>Client:</strong> <?php echo e($ticketData['client'] ?? 'Anonyme'); ?></div>
+        <div class="info-line"><strong>N° Vente:</strong> <?php echo e($ticketData['id'] ?? 'N/A'); ?></div>
+        
+        <div style="margin-top: 8px; border-top: 1px dashed #000; padding-top: 4px;">
+            <?php if(isset($ticketData['produits']) && is_array($ticketData['produits'])): ?>
+                <?php $__currentLoopData = $ticketData['produits']; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $produit): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <div class="product"><?php echo e($produit['nom'] ?? 'Produit'); ?></div>
+                    <div class="info-line">
+                        Qté: <?php echo e($produit['quantite'] ?? 1); ?> × <?php echo e(number_format($produit['prix_unitaire'] ?? 0, 2)); ?> DH
+                    </div>
+                    <div class="price">
+                        = <?php echo e(number_format(($produit['prix_unitaire'] ?? 0) * ($produit['quantite'] ?? 1), 2)); ?> DH
+                    </div>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+            <?php endif; ?>
+        </div>
+        
+        <div class="total">
+            TOTAL: <?php echo e(number_format($ticketData['total'] ?? 0, 2)); ?> DH
+        </div>
+        
+        <div class="barcode-container">
+            <?php if(isset($barcode) && !empty($barcode)): ?>
+                <?php echo $barcode; ?>
+
+            <?php else: ?>
+                <div class="barcode-text"><?php echo e($ticketData['id'] ?? 'N/A'); ?></div>
+                <div class="code">Numéro de vente</div>
+            <?php endif; ?>
+        </div>
+        
+    <?php else: ?>
+        <!-- Ticket de réparation -->
+        <div class="info-line"><strong>Code:</strong> <?php echo e($ticketData['code'] ?? 'N/A'); ?></div>
+        <div class="info-line"><strong>Client:</strong> <?php echo e($ticketData['nom'] ?? 'N/A'); ?></div>
+        <div class="info-line"><strong>Produit:</strong> <?php echo e($ticketData['produit'] ?? 'N/A'); ?></div>
+        
+        <?php if(!empty($ticketData['description'])): ?>
+        <div style="margin: 6px 0; padding: 4px; background: #f9f9f9; border: 1px solid #ddd;">
+            <div style="font-size: 9px; font-weight: bold;">Description:</div>
+            <div style="font-size: 9px; text-align: left;"><?php echo e($ticketData['description']); ?></div>
+        </div>
         <?php endif; ?>
-    </div>
+        
+        <div class="total">
+            Prix: <?php echo e(number_format($ticketData['prix'] ?? 0, 2)); ?> DH
+        </div>
+        
+        <div class="barcode-container">
+            <?php if(isset($barcode) && !empty($barcode)): ?>
+                <?php echo $barcode; ?>
+
+            <?php else: ?>
+                <div class="barcode-text"><?php echo e($ticketData['code'] ?? 'N/A'); ?></div>
+                <div class="code">Code réparation</div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
 
     <div class="footer">
-        Merci pour votre visite!<br>
+        <strong>Merci pour votre visite!</strong><br>
         Clinique du Smartphones<br>
-        Téléphone: 0667765531/0660797507<br>
-
+        Tél: 0667765531 / 0660797507<br>
+        <small>Conservez ce ticket</small>
     </div>
+</div>
 
-    <script>
-        window.onload = function() {
-            window.print();
-        }
-    </script>
 </body>
-</html></content>
-<file_path="c:\Users\marwan\clinique\resources\views\ticket.blade.php<?php /**PATH C:\Users\marwan\clinique\resources\views/ticket.blade.php ENDPATH**/ ?>
+</html><?php /**PATH C:\Users\marwan\clinique\resources\views/ticket.blade.php ENDPATH**/ ?>

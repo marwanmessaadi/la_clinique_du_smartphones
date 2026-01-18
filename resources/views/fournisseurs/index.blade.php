@@ -65,7 +65,7 @@
                     <table class="fournisseurs-table">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                
                                 <th>Nom du Fournisseur</th>
                                 <th>Contact</th>
                                 <th>Adresse</th>
@@ -75,15 +75,12 @@
                         <tbody>
                             @foreach ($fournisseurs as $fournisseur)
                                 <tr>
-                                    <td>
-                                        <span class="fournisseur-id">#{{ $fournisseur->id }}</span>
-                                    </td>
+                                    
                                     <td>
                                         <div class="fournisseur-name">{{ $fournisseur->nom }}</div>
                                     </td>
                                     <td>
                                         <div class="fournisseur-contact">
-                                            <div><i class="fas fa-envelope"></i> {{ $fournisseur->email }}</div>
                                             <div><i class="fas fa-phone"></i> {{ $fournisseur->telephone }}</div>
                                         </div>
                                     </td>

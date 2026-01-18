@@ -2,98 +2,229 @@
 @section('title', 'Point de Vente (Réparation)')
 @section('content')
 <div class="container py-4" style="min-height:70vh;">
+
+    <!-- Navigation POS -->
     <div class="d-flex justify-content-center mb-4 gap-3">
         <a href="{{ route('pos.vente') }}" class="btn btn-outline-primary">Vente Produits</a>
         <a href="{{ route('pos.reparation') }}" class="btn btn-primary active">Réparations</a>
     </div>
+
+    <!-- Messages de succès/erreur -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    <!-- Ajouter réparation -->
     <div class="mt-4">
-        <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Réparations</h5>
             <form method="GET" action="{{ route('pos.reparation') }}">
-                <button type="submit" name="show_repair_form" value="1" class="btn btn-outline-primary btn-sm"><i class="bi bi-wrench"></i> Ajouter réparation</button>
+                @if(request('show_repair_form'))
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                @else
+                    <button type="submit" name="show_repair_form" value="1" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-wrench"></i> Ajouter réparation
+                    </button>
+                @endif
             </form>
         </div>
+
         @if(request('show_repair_form'))
         <div class="card card-body mb-3 border-primary">
+            <h6 class="mb-3">Nouvelle Réparation</h6>
             <form id="form-add-reparation" method="POST" action="{{ route('pos.storeRepair') }}">
                 @csrf
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
-                        <input type="text" name="nom" class="form-control" placeholder="Client" required>
+                        <label class="form-label small">Client *</label>
+                        <input type="text" name="nom" class="form-control" placeholder="Nom du client" value="{{ old('nom') }}" required>
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="produit" class="form-control" placeholder="Produit à réparer" required>
+                        <label class="form-label small">Produit *</label>
+                        <input type="text" name="produit" class="form-control" placeholder="Produit à réparer" value="{{ old('produit') }}" required>
                     </div>
                     <div class="col-md-4">
-                        <input type="number" name="prix" class="form-control" placeholder="Prix" step="0.01" required>
+                        <label class="form-label small">Prix (DH) *</label>
+                        <input type="number" name="prix" class="form-control" placeholder="Prix" step="0.01" min="0" value="{{ old('prix') }}" required>
+                    </div>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label small">État *</label>
+                        <select name="etat" class="form-select" required>
+                            <option value="en_cours" {{ old('etat') == 'en_cours' ? 'selected' : '' }}>En cours</option>
+                            <option value="terminee" {{ old('etat') == 'terminee' ? 'selected' : '' }}>Terminée</option>
+                            <option value="annulee" {{ old('etat') == 'annulee' ? 'selected' : '' }}>Annulée</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small">Client (optionnel)</label>
+                        <select name="client_id" class="form-select">
+                            <option value="">Sélectionner un client</option>
+                            @foreach($clients as $client)
+                                <option value="{{ $client->id }}" {{ old('client_id') == $client->id ? 'selected' : '' }}>
+                                    {{ $client->prenom }} {{ $client->nom }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
                 <div class="mb-2">
-                    <textarea name="description" class="form-control" placeholder="Description"></textarea>
+                    <label class="form-label small">Description</label>
+                    <textarea name="description" class="form-control" placeholder="Description de la réparation..." rows="2">{{ old('description') }}</textarea>
                 </div>
                 <div class="mb-2">
-                    <select name="etat" class="form-select">
-                        <option value="en_cours">En cours</option>
-                        <option value="terminee">Terminée</option>
-                    </select>
+                    <label class="form-label small">Notes (optionnel)</label>
+                    <textarea name="notes" class="form-control" placeholder="Notes supplémentaires..." rows="1">{{ old('notes') }}</textarea>
                 </div>
                 <div class="text-end">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Enregistrer</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer
+                    </button>
                 </div>
             </form>
         </div>
         @endif
+
+        <!-- Formulaire de recherche -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <form method="GET" action="{{ route('pos.reparation') }}" class="row g-2">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" name="search_reparation" class="form-control" 
+                                   placeholder="Rechercher par client, produit, code..." 
+                                   value="{{ request('search_reparation') }}">
+                            <button class="btn btn-outline-primary" type="submit">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select name="etat_filter" class="form-select" onchange="this.form.submit()">
+                            <option value="">Tous les états</option>
+                            <option value="en_cours" {{ request('etat_filter') == 'en_cours' ? 'selected' : '' }}>En cours</option>
+                            <option value="terminee" {{ request('etat_filter') == 'terminee' ? 'selected' : '' }}>Terminée</option>
+                            <option value="annulee" {{ request('etat_filter') == 'annulee' ? 'selected' : '' }}>Annulée</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tableau des réparations -->
         <div class="card shadow-sm">
-            <div class="card-body p-2">
-                <div class="mb-3">
-                    <input type="text" id="search-reparation" class="form-control" placeholder="Rechercher réparation par client, produit, description...">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Code</th>
+                                <th>Client</th>
+                                <th>Produit</th>
+                                <th>Prix (DH)</th>
+                                <th>Description</th>
+                                <th>État</th>
+                                <th>Date</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reparations-list">
+                            @forelse($reparations as $reparation)
+                            <tr class="reparation-row" 
+                                data-client="{{ strtolower($reparation->nom) }}" 
+                                data-produit="{{ strtolower($reparation->produit) }}" 
+                                data-description="{{ strtolower($reparation->description ?? '') }}"
+                                data-etat="{{ $reparation->etat }}"
+                                data-code="{{ strtolower($reparation->code ?? '') }}">
+                                <td>
+                                    <span class="badge bg-secondary text-white">{{ $reparation->code ?? 'N/A' }}</span>
+                                </td>
+                                <td>{{ $reparation->nom }}</td>
+                                <td>{{ $reparation->produit }}</td>
+                                <td>
+                                    <strong>{{ number_format($reparation->prix, 2) }} DH</strong>
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ Str::limit($reparation->description ?? '', 50) }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="text-white badge bg-{{ $reparation->etat == 'en_cours' ? 'warning' : ($reparation->etat == 'terminee' ? 'success' : ($reparation->etat == 'annulee' ? 'danger' : 'secondary')) }}">
+                                        {{ ucfirst(str_replace('_',' ',$reparation->etat)) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small>
+                                        {{ $reparation->date_reparation ? $reparation->date_reparation->format('d/m/Y H:i') : 'N/A' }}
+                                    </small>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        
+
+                                        <!-- Ticket -->
+                                        <a href="{{ route('pos.repairTicket', $reparation->id) }}" 
+                                           target="_blank" 
+                                           class="btn btn-outline-success" 
+                                           title="Imprimer ticket">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
+
+                                        
+                                        
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="8" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="bi bi-wrench display-6 d-block mb-2"></i>
+                                        @if(request('search_reparation') || request('etat_filter'))
+                                            Aucune réparation trouvée avec ces critères
+                                        @else
+                                            Aucune réparation enregistrée
+                                        @endif
+                                    </div>
+                                    @if(!request('show_repair_form'))
+                                    <a href="{{ route('pos.reparation') }}?show_repair_form=1" class="btn btn-sm btn-primary mt-2">
+                                        <i class="bi bi-plus-circle"></i> Ajouter une réparation
+                                    </a>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Client</th>
-                            <th>Produit</th>
-                            <th>Prix</th>
-                            <th>Description</th>
-                            <th>État</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="reparations-list">
-                        @forelse($reparations as $reparation)
-                        <tr class="reparation-row" data-client="{{ strtolower($reparation->nom) }}" data-produit="{{ strtolower($reparation->produit) }}" data-description="{{ strtolower($reparation->description) }}">
-                            <td>{{ $reparation->nom }}</td>
-                            <td>{{ $reparation->produit }}</td>
-                            <td>{{ number_format($reparation->prix,2) }} DH</td>
-                            <td>{{ $reparation->description }}</td>
-                            <td><span class="badge bg-{{ $reparation->etat == 'en_cours' ? 'warning' : ($reparation->etat == 'terminee' ? 'success' : 'secondary') }}">{{ ucfirst(str_replace('_',' ',$reparation->etat)) }}</span></td>
-                            <td>{{ $reparation->date_reparation ? $reparation->date_reparation->format('d/m/Y H:i') : 'N/A' }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-info btn-edit-reparation" 
-                                    data-id="{{ $reparation->id }}"
-                                    data-nom="{{ $reparation->nom }}"
-                                    data-produit="{{ $reparation->produit }}"
-                                    data-prix="{{ $reparation->prix }}"
-                                    data-description="{{ $reparation->description }}"
-                                    data-etat="{{ $reparation->etat }}"
-                                >
-                                    <i class="bi bi-pencil-square"></i> Modifier
-                                </button>
-                                <form method="POST" action="{{ route('pos.deleteRepair', $reparation->id) }}" style="display:inline;">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Supprimer cette réparation ?')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="7" class="text-center text-muted">Aucune réparation</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+
+                <!-- Pagination -->
+                @if($reparations instanceof \Illuminate\Pagination\LengthAwarePaginator && $reparations->total() > 0)
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">
+                            Affichage de {{ $reparations->firstItem() }} à {{ $reparations->lastItem() }} sur {{ $reparations->total() }} réparations
+                        </div>
+                        <div>
+                            {{ $reparations->withQueryString()->links() }}
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -111,64 +242,193 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-2">
-                        <input type="text" name="nom" id="edit-nom" class="form-control" placeholder="Client" required>
+                    <div class="mb-3">
+                        <label class="form-label">Client *</label>
+                        <input type="text" name="nom" id="edit-nom" class="form-control" placeholder="Nom du client" required>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
+                        <label class="form-label">Produit *</label>
                         <input type="text" name="produit" id="edit-produit" class="form-control" placeholder="Produit à réparer" required>
                     </div>
-                    <div class="mb-2">
-                        <input type="number" name="prix" id="edit-prix" class="form-control" placeholder="Prix" step="0.01" required>
+                    <div class="mb-3">
+                        <label class="form-label">Prix (DH) *</label>
+                        <input type="number" name="prix" id="edit-prix" class="form-control" placeholder="Prix" step="0.01" min="0" required>
                     </div>
-                    <div class="mb-2">
-                        <textarea name="description" id="edit-description" class="form-control" placeholder="Description"></textarea>
-                    </div>
-                    <div class="mb-2">
-                        <select name="etat" id="edit-etat" class="form-select">
+                    <div class="mb-3">
+                        <label class="form-label">État *</label>
+                        <select name="etat" id="edit-etat" class="form-select" required>
                             <option value="en_cours">En cours</option>
                             <option value="terminee">Terminée</option>
+                            <option value="annulee">Annulée</option>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Client (optionnel)</label>
+                        <select name="client_id" id="edit-client_id" class="form-select">
+                            <option value="">Sélectionner un client</option>
+                            @foreach($clients as $client)
+                                <option value="{{ $client->id }}">
+                                    {{ $client->prenom }} {{ $client->nom }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" id="edit-description" class="form-control" placeholder="Description de la réparation..." rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" id="edit-notes" class="form-control" placeholder="Notes supplémentaires..." rows="2"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer les modifications
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+<!-- Modal confirmation suppression -->
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmation de suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer cette réparation ? Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer">
+                <form id="deleteForm" method="POST" action="">
+                    @csrf
+                    @method('DELETE')
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('styles')
+<style>
+    .reparation-row:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    
+    .badge {
+        font-size: 0.75em;
+    }
+    
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    
+    .btn-group-sm > .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .card-footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+</style>
+@endpush
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Edition
-    document.querySelectorAll('.btn-edit-reparation').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            document.getElementById('edit-id').value = this.dataset.id;
-            document.getElementById('edit-nom').value = this.dataset.nom;
-            document.getElementById('edit-produit').value = this.dataset.produit;
-            document.getElementById('edit-prix').value = this.dataset.prix;
-            document.getElementById('edit-description').value = this.dataset.description;
-            document.getElementById('edit-etat').value = this.dataset.etat;
-            var modal = new bootstrap.Modal(document.getElementById('modalEditReparation'));
+    console.log('Script chargé'); // Debug
+
+    // Édition réparation
+    const editButtons = document.querySelectorAll('.btn-edit-reparation');
+    console.log('Boutons trouvés:', editButtons.length); // Debug
+    
+    editButtons.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Bouton cliqué', this.dataset); // Debug
+            
+            // Remplir les champs du modal
+            document.getElementById('edit-id').value = this.dataset.id || '';
+            document.getElementById('edit-nom').value = this.dataset.nom || '';
+            document.getElementById('edit-produit').value = this.dataset.produit || '';
+            document.getElementById('edit-prix').value = this.dataset.prix || '';
+            document.getElementById('edit-description').value = this.dataset.description || '';
+            document.getElementById('edit-etat').value = this.dataset.etat || 'en_cours';
+            document.getElementById('edit-client_id').value = this.dataset.client_id || '';
+            document.getElementById('edit-notes').value = this.dataset.notes || '';
+            
+            // Ouvrir le modal
+            const modalElement = document.getElementById('modalEditReparation');
+            const modal = new bootstrap.Modal(modalElement);
             modal.show();
         });
     });
-    // Recherche dynamique
-    document.getElementById('search-reparation').addEventListener('input', function() {
-        const val = this.value.trim().toLowerCase();
-        document.querySelectorAll('#reparations-list .reparation-row').forEach(function(row) {
-            const client = row.dataset.client;
-            const produit = row.dataset.produit;
-            const description = row.dataset.description;
-            if(val === '' || client.includes(val) || produit.includes(val) || description.includes(val)) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
+
+    // Confirmation suppression
+    window.confirmDelete = function(id) {
+        const form = document.getElementById('deleteForm');
+        form.action = '{{ route("pos.deleteRepair", ":id") }}'.replace(':id', id);
+        
+        const modal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+        modal.show();
+    };
+
+    // Validation du formulaire
+    const addForm = document.getElementById('form-add-reparation');
+    const editForm = document.getElementById('form-edit-reparation');
+    
+    [addForm, editForm].forEach(form => {
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const prix = this.querySelector('input[name="prix"]');
+                if (prix && parseFloat(prix.value) < 0) {
+                    e.preventDefault();
+                    alert('Le prix ne peut pas être négatif');
+                    prix.focus();
+                    return false;
+                }
+            });
+        }
+    });
+
+    // Formatage automatique du prix
+    document.querySelectorAll('input[name="prix"]').forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value && this.value !== '') {
+                this.value = parseFloat(this.value).toFixed(2);
             }
         });
     });
+
+    // Sélection rapide d'une ligne - DÉSACTIVÉ pour éviter les conflits
+    // document.querySelectorAll('.reparation-row').forEach(row => {
+    //     row.addEventListener('click', function(e) {
+    //         if (!e.target.closest('button') && !e.target.closest('a')) {
+    //             const btnEdit = this.querySelector('.btn-edit-reparation');
+    //             if (btnEdit) btnEdit.click();
+    //         }
+    //     });
+    // });
+
+    // Auto-focus sur le champ de recherche
+    const searchInput = document.querySelector('input[name="search_reparation"]');
+    if (searchInput && !document.querySelector('.modal.show')) {
+        searchInput.focus();
+    }
 });
 </script>
 @endpush
