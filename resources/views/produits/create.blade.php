@@ -68,7 +68,7 @@
                 {{-- Section Produits --}}
                 <div class="card mb-4 border-primary">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">
+                        <h5 class="mb-0 text-white">
                             <i class="fas fa-boxes"></i> Produits de la commande
                             <span class="badge bg-primary ms-2" id="productCount">0</span>
                         </h5>

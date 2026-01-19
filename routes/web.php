@@ -13,6 +13,7 @@ use App\Http\Controllers\POSController;
 use App\Http\Controllers\CommandeController;
 use App\Http\Controllers\ReparationController;
 use Illuminate\Support\Facades\DB;
+
 /*
 |--------------------------------------------------------------------------
 | Routes publiques (Authentification)
@@ -20,8 +21,9 @@ use Illuminate\Support\Facades\DB;
 */
 
 Route::middleware('guest')->group(function () {
-    Route::get('/back/login', [LoginController::class, 'login'])->name('login');
-    Route::post('/login_valid', [LoginController::class, 'login_valid'])->name('login_valid');
+    // Route de login simplifiée - SANS /back/
+    Route::get('/login', [LoginController::class, 'login'])->name('login');
+    Route::post('/login', [LoginController::class, 'login_valid'])->name('login_valid');
 });
 
 
@@ -31,7 +33,7 @@ Route::middleware('guest')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::middleware(['auth', 'admin:admin,vendeur'])->group(function () {
+Route::middleware(['auth'])->group(function () {
 
     /*
     |----------------------------------------------------------------------
@@ -217,31 +219,31 @@ Route::middleware(['auth', 'admin:admin,vendeur'])->group(function () {
     | Point de Vente (POS)
     |----------------------------------------------------------------------
     */
-Route::prefix('pos')->name('pos.')->group(function () {
-    // Redirection par défaut
-    Route::get('/', function() {
-        return redirect()->route('pos.vente');
-    })->name('index');
-    
-    // VENTE
-    Route::get('/vente', [POSController::class, 'venteIndex'])->name('vente');
-    Route::post('/vente', [POSController::class, 'store'])->name('storeVente');
-    
-    // Routes pour le panier basique
-    Route::post('/cash', [POSController::class, 'store'])->name('cash');
-    Route::post('/credit', [POSController::class, 'store'])->name('credit');
-    
-    // RÉPARATION
-    Route::get('/reparation', [POSController::class, 'reparationIndex'])->name('reparation');
-    Route::post('/reparation/store', [POSController::class, 'storeRepair'])->name('storeRepair');
-    Route::delete('/reparation/{id}', [POSController::class, 'deleteRepair'])->name('deleteRepair');
-    Route::get('/reparation/{id}/ticket', [POSController::class, 'repairTicket'])->name('repairTicket');
-    
-    
-    // API & UTILITAIRES
-    Route::get('/barcode/{code}', [POSController::class, 'generateBarcodeApi'])->name('barcode');
-    Route::post('/search-repair', [POSController::class, 'searchRepairByCode'])->name('searchRepair');
-});
+    Route::prefix('pos')->name('pos.')->group(function () {
+        // Redirection par défaut
+        Route::get('/', function() {
+            return redirect()->route('pos.vente');
+        })->name('index');
+        
+        // VENTE
+        Route::get('/vente', [POSController::class, 'venteIndex'])->name('vente');
+        Route::post('/vente', [POSController::class, 'store'])->name('storeVente');
+        
+        // Routes pour le panier basique
+        Route::post('/cash', [POSController::class, 'store'])->name('cash');
+        Route::post('/credit', [POSController::class, 'store'])->name('credit');
+        
+        // RÉPARATION
+        Route::get('/reparation', [POSController::class, 'reparationIndex'])->name('reparation');
+        Route::post('/reparation/store', [POSController::class, 'storeRepair'])->name('storeRepair');
+        Route::delete('/reparation/{id}', [POSController::class, 'deleteRepair'])->name('deleteRepair');
+        Route::get('/reparation/{id}/ticket', [POSController::class, 'repairTicket'])->name('repairTicket');
+        
+        // API & UTILITAIRES
+        Route::get('/barcode/{code}', [POSController::class, 'generateBarcodeApi'])->name('barcode');
+        Route::post('/search-repair', [POSController::class, 'searchRepairByCode'])->name('searchRepair');
+    });
+
     /*
     |----------------------------------------------------------------------
     | Routes API pour AJAX/JSON

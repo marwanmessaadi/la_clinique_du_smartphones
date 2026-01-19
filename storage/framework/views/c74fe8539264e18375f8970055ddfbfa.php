@@ -78,11 +78,10 @@
                             <table class="table table-hover mb-0">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width: 40%;">Produit</th>
+                                        <th style="width: 20%;">Produit</th>
                                         <th style="width: 15%;" class="text-center">Qté</th>
                                         <th style="width: 20%;" class="text-end">Prix d'achat</th>
                                         <th style="width: 20%;" class="text-end">Prix Unit</th>
-                                        <th style="width: 20%;" class="text-end">Total</th>
                                         <th style="width: 5%;"></th>
                                     </tr>
                                 </thead>
@@ -230,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td class="text-end">
                             <input type="number" class="form-control form-control-sm prix-input text-end" value="${item.prix.toFixed(2)}" min="0" step="0.01" data-idx="${idx}">
                         </td>
-                        <td class="text-end"><strong>${sousTotal.toFixed(2)} DH</strong></td>
+                        
                         <td class="text-center"><button class="btn btn-sm btn-danger btn-remove" data-idx="${idx}"><i class="fas fa-trash"></i></button></td>
                     </tr>
                 `);
